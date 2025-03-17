@@ -56,14 +56,23 @@ module.exports = {
           .setRequired(true)
           .setStyle(TextInputStyle.Paragraph)
           .setMaxLength(1000);
+          
+        // Ajout du champ pour les tags
+        const tagsInput = new TextInputBuilder()
+          .setCustomId('tags')
+          .setLabel('Tags (séparés par des virgules)')
+          .setPlaceholder('javascript, discord.js, bot, etc...')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short);
 
         // Organisation des champs en lignes
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
+        const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
 
         // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow);
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow);
 
         // Afficher le modal
         await interaction.showModal(modal);

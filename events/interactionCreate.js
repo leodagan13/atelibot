@@ -183,6 +183,12 @@ async function handleOrderModalSubmit(interaction, client) {
     const compensation = interaction.fields.getTextInputValue('compensation');
     const description = interaction.fields.getTextInputValue('description');
     
+    // Récupérer et traiter les tags
+    const tagsString = interaction.fields.getTextInputValue('tags') || '';
+    const tags = tagsString.split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+    
     // Générer un ID unique pour cette commande
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
@@ -199,6 +205,13 @@ async function handleOrderModalSubmit(interaction, client) {
       )
       .setFooter({ text: `Proposé par ${interaction.user.tag}` })
       .setTimestamp();
+    
+    // Ajouter les tags à la prévisualisation s'il y en a
+    const tagsFormatted = tags.length > 0 
+      ? tags.map(tag => `🔴 \`${tag}\``).join('\n')
+      : 'Aucun tag';
+    
+    previewEmbed.addFields({ name: 'Mandatory', value: tagsFormatted });
     
     // Buttons pour confirmer ou annuler
     const actionRow = new ActionRowBuilder()
@@ -219,7 +232,8 @@ async function handleOrderModalSubmit(interaction, client) {
       data: {
         clientName,
         compensation,
-        description
+        description,
+        tags
       }
     });
     
@@ -290,6 +304,16 @@ async function publishModalOrder(interaction, orderId, client) {
         { name: 'Description', value: orderSession.data.description },
         { name: 'Posté par', value: `<@${interaction.user.id}>` }
       );
+    
+    // Formater les tags pour l'affichage
+    const tagsFormatted = orderSession.data.tags && orderSession.data.tags.length > 0 
+      ? orderSession.data.tags.map(tag => `🔴 \`${tag}\``).join('\n')
+      : 'Aucun tag';
+    
+    // Ajouter les tags à l'embed
+    publishEmbed.addFields(
+      { name: 'Mandatory', value: tagsFormatted }
+    );
     
     // Bouton pour accepter l'offre
     const publishRow = new ActionRowBuilder()

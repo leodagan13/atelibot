@@ -120,6 +120,11 @@ async function createPrivateChannel(guild, order, coderId) {
  * @param {String} coderId - ID du codeur
  */
 async function sendInitialMessage(channel, order, coderId) {
+  // Récupérer les tags de l'ordre
+  const tagsFormatted = order.tags && order.tags.length > 0
+    ? order.tags.map(tag => `🔴 \`${tag}\``).join('\n')
+    : 'Aucun tag';
+    
   // Create project embed
   const projectEmbed = new EmbedBuilder()
     .setColor('#00ff00')
@@ -130,7 +135,8 @@ async function sendInitialMessage(channel, order, coderId) {
       { name: 'Rémunération', value: order.compensation },
       { name: 'Description', value: order.description },
       { name: 'Codeur', value: `<@${coderId}>` },
-      { name: 'Administrateur', value: `<@${order.adminid}>` }
+      { name: 'Administrateur', value: `<@${order.adminid}>` },
+      { name: 'Mandatory', value: tagsFormatted }
     )
     .setTimestamp();
   

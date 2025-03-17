@@ -32,7 +32,8 @@ const orderDB = {
         compensation: orderData.data.compensation || '0',
         description: orderData.data.description || 'Aucune description',
         status: 'OPEN',
-        createdat: new Date().toISOString()
+        createdat: new Date().toISOString(),
+        tags: orderData.data.tags || []
       };
       
       console.log("Données formatées pour insertion:", orderToInsert);

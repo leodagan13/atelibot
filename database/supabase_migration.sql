@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS public.orders (
   updatedat TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tags TEXT[];
+
 -- Coders table
 CREATE TABLE IF NOT EXISTS public.coders (
   id SERIAL PRIMARY KEY,
