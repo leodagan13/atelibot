@@ -1,22 +1,27 @@
 {
-  "name": "atelibot",
+  "name": "discord-job-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Discord bot for managing coding job offers",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "discord",
+    "bot",
+    "jobs"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "nodemon": "^3.1.9"
-  },
   "dependencies": {
-    "@discordjs/builders": "^1.10.1",
-    "@supabase/supabase-js": "^2.49.1",
-    "discord.js": "^14.18.0",
-    "dotenv": "^16.4.7"
+    "discord.js": "^14.11.0",
+    "dotenv": "^16.0.3",
+    "mongoose": "^7.1.0",
+    "winston": "^3.8.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   }
 }
