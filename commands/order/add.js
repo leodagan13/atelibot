@@ -1,6 +1,10 @@
-// commands/order/add.js - Version mise à jour avec support pour slash commands
+// commands/order/add.js - Version mise à jour avec formulaire interactif
 const { SlashCommandBuilder } = require('@discordjs/builders');
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
+const { orderDB } = require('../../database');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
 
 module.exports = {
@@ -24,36 +28,51 @@ module.exports = {
         return isSlash ? interaction.reply({ content: reply, ephemeral: true }) : interaction.reply(reply);
       }
       
-      // Générer un ID unique avec timestamp + random string pour éviter les doublons
-      const randomString = Math.random().toString(36).substring(2, 8);
-      const orderId = `${Date.now().toString().slice(-8)}-${randomString}`;
-      
-      // Start a new order session
-      const orderSession = {
-        step: 0,
-        data: {},
-        startedAt: Date.now(),
-        channelid: isSlash ? interaction.channelId : interaction.channel.id,
-        orderId: orderId
-      };
-      
-      // Add to active sessions
-      client.activeOrders.set(userId, orderSession);
-      
-      // Begin the order creation process
       if (isSlash) {
-        await interaction.reply({ 
-          content: 'Commençons la création d\'une nouvelle offre. Veuillez répondre aux questions suivantes:',
-          ephemeral: false 
-        });
-        await interaction.channel.send('**Étape 1/3**: Quel est le nom du client pour cette offre?');
+        // Créer un modal pour saisir toutes les informations en une fois
+        const modal = new ModalBuilder()
+          .setCustomId(`create_order_modal_${userId}`)
+          .setTitle('Nouvelle offre de travail');
+
+        // Ajout des champs du formulaire
+        const clientNameInput = new TextInputBuilder()
+          .setCustomId('clientName')
+          .setLabel('Nom du client (confidentiel pour les codeurs)')
+          .setPlaceholder('Entrez le nom du client')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Short);
+
+        const compensationInput = new TextInputBuilder()
+          .setCustomId('compensation')
+          .setLabel('Rémunération pour le codeur')
+          .setPlaceholder('Ex: 20€, 2 crédits, etc...')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Short);
+
+        const descriptionInput = new TextInputBuilder()
+          .setCustomId('description')
+          .setLabel('Description du travail')
+          .setPlaceholder('Décrivez le travail à réaliser en détail')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Paragraph)
+          .setMaxLength(1000);
+
+        // Organisation des champs en lignes
+        const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
+        const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
+        const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
+
+        // Ajout des lignes au modal
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow);
+
+        // Afficher le modal
+        await interaction.showModal(modal);
       } else {
-        await interaction.reply('Commençons la création d\'une nouvelle offre. Veuillez répondre aux questions suivantes:');
-        await interaction.channel.send('**Étape 1/3**: Quel est le nom du client pour cette offre?');
+        // Pour les commandes en préfixe, garder l'ancien système ou rediriger vers la slash command
+        await interaction.reply('Veuillez utiliser la slash command `/add` pour créer une nouvelle offre.');
       }
       
-      // Log for debugging
-      logger.info(`Order creation started by ${isSlash ? interaction.user.tag : interaction.author.tag}`);
+      logger.info(`Order creation modal shown to ${isSlash ? interaction.user.tag : interaction.author.tag}`);
       
     } catch (error) {
       logger.error('Error starting order creation:', error);
