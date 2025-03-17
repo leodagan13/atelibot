@@ -1,6 +1,7 @@
 -- Function to calculate average completion time
 CREATE OR REPLACE FUNCTION calculate_average_completion_time()
-RETURNS TABLE (avg_completion_time DOUBLE PRECISION) AS $
+RETURNS TABLE (avg_completion_time DOUBLE PRECISION) AS 
+$$
 BEGIN
   RETURN QUERY
   SELECT
@@ -11,7 +12,7 @@ BEGIN
     AND completedAt IS NOT NULL 
     AND assignedAt IS NOT NULL;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 -- Function to get monthly order statistics
 CREATE OR REPLACE FUNCTION get_monthly_order_stats()
@@ -21,7 +22,8 @@ RETURNS TABLE (
   completed BIGINT,
   cancelled BIGINT,
   avg_completion_hours FLOAT
-) AS $
+) AS 
+$$
 BEGIN
   RETURN QUERY
   SELECT
@@ -41,4 +43,4 @@ BEGIN
   ORDER BY DATE_TRUNC('month', createdAt) DESC
   LIMIT 6;
 END;
-$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
