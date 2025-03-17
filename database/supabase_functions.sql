@@ -1,4 +1,4 @@
--- Fonction pour calculer le temps moyen de complétion
+-- Function to calculate average completion time
 CREATE OR REPLACE FUNCTION calculate_average_completion_time()
 RETURNS TABLE (avg_completion_time DOUBLE PRECISION) AS $
 BEGIN
@@ -13,7 +13,7 @@ BEGIN
 END;
 $ LANGUAGE plpgsql;
 
--- Fonction pour obtenir les statistiques mensuelles
+-- Function to get monthly order statistics
 CREATE OR REPLACE FUNCTION get_monthly_order_stats()
 RETURNS TABLE (
   month TEXT,

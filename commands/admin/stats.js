@@ -1,5 +1,5 @@
-// commands/admin/stats.js - Commande pour afficher les statistiques des commandes
-
+// commands/admin/stats.js - Command to display order statistics
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const { EmbedBuilder } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
@@ -7,63 +7,110 @@ const logger = require('../../utils/logger');
 const supabase = require('../../database/supabase');
 
 module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('stats')
+    .setDescription('Affiche les statistiques des commandes et des codeurs')
+    .addStringOption(option =>
+      option.setName('type')
+        .setDescription('Type de statistiques à afficher')
+        .setRequired(false)
+        .addChoices(
+          { name: 'Général', value: 'general' },
+          { name: 'Commandes', value: 'orders' },
+          { name: 'Codeurs', value: 'coders' }
+        )),
+
   name: 'stats',
   description: 'Affiche les statistiques des commandes et des codeurs',
   permissions: adminRoles,
   
-  async execute(message, args, client) {
+  async execute(interaction, args, client) {
     try {
-      // Déterminer le type de statistiques à afficher
+      // Determine if this is a slash command or prefix command
+      const isSlash = interaction.isChatInputCommand?.();
+      
+      // Default to showing general stats
       let statsType = 'general';
-      if (args.length > 0) {
-        const validTypes = ['general', 'orders', 'coders'];
-        const requestedType = args[0].toLowerCase();
+      
+      if (isSlash) {
+        // For slash commands
+        await interaction.deferReply();
         
-        if (validTypes.includes(requestedType)) {
+        const requestedType = interaction.options.getString('type');
+        if (requestedType) {
           statsType = requestedType;
+        }
+      } else {
+        // For prefix commands
+        if (args && args.length > 0) {
+          const validTypes = ['general', 'orders', 'coders'];
+          const requestedType = args[0].toLowerCase();
+          
+          if (validTypes.includes(requestedType)) {
+            statsType = requestedType;
+          }
         }
       }
       
-      // Obtenir et afficher les statistiques demandées
+      // Get and display requested stats
+      let embed;
+      
       switch (statsType) {
         case 'general':
-          await showGeneralStats(message);
+          embed = await generateGeneralStats();
           break;
           
         case 'orders':
-          await showOrderDetailStats(message);
+          embed = await generateOrderStats();
           break;
           
         case 'coders':
-          await showCoderStats(message);
+          embed = await generateCoderStats();
           break;
+      }
+      
+      // Reply with embed
+      if (isSlash) {
+        await interaction.editReply({ embeds: [embed] });
+      } else {
+        await interaction.reply({ embeds: [embed] });
       }
       
     } catch (error) {
       logger.error('Error displaying statistics:', error);
-      message.reply('Une erreur est survenue lors de l\'affichage des statistiques.');
+      const errorMessage = 'Une erreur est survenue lors de l\'affichage des statistiques.';
+      
+      if (interaction.isChatInputCommand?.()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply(errorMessage);
+        } else {
+          await interaction.reply(errorMessage);
+        }
+      } else {
+        await interaction.reply(errorMessage);
+      }
     }
   }
 };
 
 /**
- * Affiche les statistiques générales
- * @param {Object} message - Message Discord
+ * Generate general statistics
+ * @returns {EmbedBuilder} - Embed with general stats
  */
-async function showGeneralStats(message) {
-  // Récupérer les statistiques
+async function generateGeneralStats() {
+  // Get statistics
   const stats = await orderDB.getOrderStats();
   
-  // Calculer les temps moyens
+  // Calculate average completion times
   const avgTimes = await calculateAverageCompletionTimes();
   
-  // Calculer les taux de complétion et d'annulation
+  // Calculate completion and cancellation rates
   const completionRate = stats.total > 0 ? 
     Math.round((stats.completed / stats.total) * 100) : 0;
   const cancellationRate = stats.total > 0 ? 
     Math.round((stats.cancelled / stats.total) * 100) : 0;
   
-  // Créer l'embed
+  // Create embed
   const embed = new EmbedBuilder()
     .setColor('#4B0082')
     .setTitle('Statistiques Générales')
@@ -77,28 +124,28 @@ async function showGeneralStats(message) {
     .setFooter({ text: 'Statistiques mises à jour' })
     .setTimestamp();
   
-  await message.reply({ embeds: [embed] });
+  return embed;
 }
 
 /**
- * Affiche les statistiques détaillées des commandes
- * @param {Object} message - Message Discord
+ * Generate order statistics
+ * @returns {EmbedBuilder} - Embed with order stats
  */
-async function showOrderDetailStats(message) {
-  // Récupérer les statistiques des commandes récentes
+async function generateOrderStats() {
+  // Get recent order statistics
   const recentOrders = await orderDB.getOrderHistory(5);
   
-  // Récupérer les statistiques mensuelles
+  // Get monthly statistics
   const monthlyStats = await getMonthlyStats();
   
-  // Créer l'embed
+  // Create embed
   const embed = new EmbedBuilder()
     .setColor('#4B0082')
     .setTitle('Statistiques Détaillées des Commandes')
     .setDescription('Aperçu des tendances et des commandes récentes')
     .setTimestamp();
   
-  // Ajouter les statistiques mensuelles
+  // Add monthly statistics
   if (monthlyStats && monthlyStats.length > 0) {
     let monthlyStatsText = '';
     monthlyStats.slice(0, 3).forEach(month => {
@@ -110,7 +157,7 @@ async function showOrderDetailStats(message) {
     embed.addFields({ name: '📅 Tendances Mensuelles', value: monthlyStatsText || 'Aucune donnée disponible' });
   }
   
-  // Ajouter les commandes récentes
+  // Add recent orders
   if (recentOrders && recentOrders.length > 0) {
     let recentOrdersText = '';
     recentOrders.forEach(order => {
@@ -123,34 +170,40 @@ async function showOrderDetailStats(message) {
     embed.addFields({ name: '🕒 Commandes Récentes', value: recentOrdersText || 'Aucune donnée disponible' });
   }
   
-  await message.reply({ embeds: [embed] });
+  return embed;
 }
 
 /**
- * Affiche les statistiques des codeurs
- * @param {Object} message - Message Discord
+ * Generate coder statistics
+ * @returns {EmbedBuilder} - Embed with coder stats
  */
-async function showCoderStats(message) {
-  // Récupérer les statistiques des codeurs
+async function generateCoderStats() {
+  // Get coder statistics
   const coderStats = await getCoderStats();
   
   if (!coderStats || coderStats.length === 0) {
-    return message.reply('Aucune statistique de codeur disponible.');
+    const embed = new EmbedBuilder()
+      .setColor('#4B0082')
+      .setTitle('Statistiques des Codeurs')
+      .setDescription('Aucune statistique de codeur disponible.')
+      .setTimestamp();
+    
+    return embed;
   }
   
-  // Créer l'embed
+  // Create embed
   const embed = new EmbedBuilder()
     .setColor('#4B0082')
     .setTitle('Statistiques des Codeurs')
     .setDescription('Performances des codeurs du serveur')
     .setTimestamp();
   
-  // Ajouter les meilleurs codeurs
+  // Add top coders
   const topCoders = coderStats.slice(0, 5);
   let topCodersText = '';
   
   topCoders.forEach((coder, index) => {
-    // Calcul du taux de complétion
+    // Calculate completion rate
     const completionRate = coder.total > 0 ? 
       Math.round((coder.completed / coder.total) * 100) : 0;
     
@@ -159,12 +212,12 @@ async function showCoderStats(message) {
   
   embed.addFields({ name: '🏆 Meilleurs Codeurs', value: topCodersText || 'Aucune donnée disponible' });
   
-  await message.reply({ embeds: [embed] });
+  return embed;
 }
 
 /**
- * Calcule le temps moyen de complétion des commandes
- * @returns {Object} - Temps moyen en millisecondes et formaté
+ * Calculate average completion time of orders
+ * @returns {Object} - Average time in milliseconds and formatted
  */
 async function calculateAverageCompletionTimes() {
   try {
@@ -176,10 +229,10 @@ async function calculateAverageCompletionTimes() {
     let avgTimeMs = 0;
     
     if (data && data.avg_completion_time) {
-      // Convertir en millisecondes
+      // Convert to milliseconds
       avgTimeMs = data.avg_completion_time * 1000;
       
-      // Formater en jours, heures, minutes
+      // Format to days, hours, minutes
       const days = Math.floor(avgTimeMs / (1000 * 60 * 60 * 24));
       const hours = Math.floor((avgTimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((avgTimeMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -199,8 +252,8 @@ async function calculateAverageCompletionTimes() {
 }
 
 /**
- * Récupère les statistiques mensuelles des commandes
- * @returns {Array} - Statistiques mensuelles
+ * Get monthly order statistics
+ * @returns {Array} - Monthly statistics
  */
 async function getMonthlyStats() {
   try {
@@ -215,8 +268,8 @@ async function getMonthlyStats() {
 }
 
 /**
- * Récupère les statistiques des codeurs
- * @returns {Array} - Statistiques des codeurs
+ * Get coder statistics
+ * @returns {Array} - Coder statistics
  */
 async function getCoderStats() {
   try {
@@ -229,11 +282,11 @@ async function getCoderStats() {
     
     if (!data || data.length === 0) return [];
     
-    // Enrichir les données
+    // Enrich data
     return data.map(coder => ({
       userId: coder.userId,
       completed: coder.completedOrders || 0,
-      total: coder.completedOrders || 0 // Simplifié pour l'exemple, on pourrait ajouter des stats plus précises
+      total: coder.completedOrders || 0 // Simplified example, could add more precise stats
     }));
   } catch (error) {
     logger.error('Error getting coder stats:', error);

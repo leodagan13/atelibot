@@ -202,20 +202,50 @@ const coderDB = {
     }
   },
   
-  // Update coder's active order
+  // Update coder's active order - fixing the duplicate key error
   async setActiveOrder(userId, orderId) {
     try {
-      const { data, error } = await supabase
+      // First check if the coder exists
+      const { data: existingCoder, error: fetchError } = await supabase
         .from('coders')
-        .upsert([{
-          userId,
-          activeOrderId: orderId,
-          lastActive: new Date().toISOString()
-        }])
-        .select();
+        .select('*')
+        .eq('userId', userId)
+        .maybeSingle();
       
-      if (error) throw error;
-      return data[0];
+      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+      
+      let result;
+      
+      if (existingCoder) {
+        // Update existing coder
+        const { data, error } = await supabase
+          .from('coders')
+          .update({
+            activeOrderId: orderId,
+            lastActive: new Date().toISOString()
+          })
+          .eq('userId', userId)
+          .select();
+        
+        if (error) throw error;
+        result = data[0];
+      } else {
+        // Insert new coder
+        const { data, error } = await supabase
+          .from('coders')
+          .insert([{
+            userId,
+            activeOrderId: orderId,
+            completedOrders: 0,
+            lastActive: new Date().toISOString()
+          }])
+          .select();
+        
+        if (error) throw error;
+        result = data[0];
+      }
+      
+      return result;
     } catch (error) {
       logger.error(`Error setting active order for coder ${userId}:`, error);
       throw error;
