@@ -22,20 +22,31 @@ const orderDB = {
   // Create a new order
   async create(orderData) {
     try {
+      console.log("Création d'ordre avec données:", orderData);
+      
+      // Utiliser des noms de colonnes en minuscules
+      const orderToInsert = {
+        orderid: orderData.orderId,           // minuscule
+        adminid: orderData.adminId,           // minuscule
+        clientname: orderData.data.clientName || 'Unknown Client', // minuscule
+        compensation: orderData.data.compensation || '0',
+        description: orderData.data.description || 'Aucune description',
+        status: 'OPEN',
+        createdat: new Date().toISOString()   // minuscule
+      };
+      
+      console.log("Données formatées pour insertion:", orderToInsert);
+      
       const { data, error } = await supabase
         .from('orders')
-        .insert([{
-          orderId: orderData.orderId,
-          adminId: orderData.adminId,
-          clientName: orderData.data.clientName || 'Unknown Client',
-          compensation: orderData.data.compensation,
-          description: orderData.data.description,
-          status: 'OPEN',
-          createdAt: new Date().toISOString()
-        }])
+        .insert([orderToInsert])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erreur Supabase:", error);
+        throw error;
+      }
+      
       return data[0];
     } catch (error) {
       logger.error('Error creating order:', error);
@@ -43,7 +54,7 @@ const orderDB = {
     }
   },
   
-  // Find orders by status
+  // Mettre à jour toutes les autres fonctions pour utiliser des noms de colonnes en minuscules
   async findByStatus(status) {
     try {
       let query = supabase
@@ -64,13 +75,12 @@ const orderDB = {
     }
   },
   
-  // Get order by ID
   async findById(orderId) {
     try {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('orderId', orderId)
+        .eq('orderid', orderId)  // minuscule
         .single();
       
       if (error) throw error;
@@ -81,24 +91,23 @@ const orderDB = {
     }
   },
   
-  // Update order status
   async updateStatus(orderId, status, coderId = null) {
     try {
       const updateData = { status };
       
       if (coderId && status === 'ASSIGNED') {
-        updateData.assignedTo = coderId;
-        updateData.assignedAt = new Date().toISOString();
+        updateData.assignedto = coderId;  // minuscule
+        updateData.assignedat = new Date().toISOString();  // minuscule
       }
       
       if (status === 'COMPLETED') {
-        updateData.completedAt = new Date().toISOString();
+        updateData.completedat = new Date().toISOString();  // minuscule
       }
       
       const { data, error } = await supabase
         .from('orders')
         .update(updateData)
-        .eq('orderId', orderId)
+        .eq('orderid', orderId)  // minuscule
         .select();
       
       if (error) throw error;
@@ -123,7 +132,7 @@ const orderDB = {
       }
       
       const { data, error } = await query
-        .order('completedAt', { ascending: false })
+        .order('completedat', { ascending: false })  // minuscule
         .range(offset, offset + limit - 1);
       
       if (error) throw error;
@@ -167,18 +176,17 @@ const orderDB = {
   }
 };
 
-// Coder functions
+// Coder functions aussi en minuscules
 const coderDB = {
-  // Get coder by user ID
   async findByUserId(userId) {
     try {
       const { data, error } = await supabase
         .from('coders')
         .select('*')
-        .eq('userId', userId)
+        .eq('userid', userId)  // minuscule
         .single();
       
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     } catch (error) {
       logger.error(`Error finding coder with user ID ${userId}:`, error);
@@ -202,42 +210,36 @@ const coderDB = {
     }
   },
   
-  // Update coder's active order - fixing the duplicate key error
   async setActiveOrder(userId, orderId) {
     try {
-      // First check if the coder exists
-      const { data: existingCoder, error: fetchError } = await supabase
+      const { data: existingCoder } = await supabase
         .from('coders')
         .select('*')
-        .eq('userId', userId)
+        .eq('userid', userId)  // minuscule
         .maybeSingle();
-      
-      if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
       
       let result;
       
       if (existingCoder) {
-        // Update existing coder
         const { data, error } = await supabase
           .from('coders')
           .update({
-            activeOrderId: orderId,
-            lastActive: new Date().toISOString()
+            activeorderid: orderId,  // minuscule
+            lastactive: new Date().toISOString()  // minuscule
           })
-          .eq('userId', userId)
+          .eq('userid', userId)  // minuscule
           .select();
         
         if (error) throw error;
         result = data[0];
       } else {
-        // Insert new coder
         const { data, error } = await supabase
           .from('coders')
           .insert([{
-            userId,
-            activeOrderId: orderId,
-            completedOrders: 0,
-            lastActive: new Date().toISOString()
+            userid: userId,  // minuscule
+            activeorderid: orderId,  // minuscule
+            completedorders: 0,  // minuscule
+            lastactive: new Date().toISOString()  // minuscule
           }])
           .select();
         
@@ -261,10 +263,10 @@ const coderDB = {
       if (!coder) {
         // Create new coder with 1 completed order
         return this.upsert({
-          userId,
-          completedOrders: 1,
-          activeOrderId: null,
-          lastActive: new Date().toISOString()
+          userid: userId,  // minuscule
+          completedorders: 1,  // minuscule
+          activeorderid: null,  // minuscule
+          lastactive: new Date().toISOString()  // minuscule
         });
       }
       
@@ -272,11 +274,11 @@ const coderDB = {
       const { data, error } = await supabase
         .from('coders')
         .update({
-          completedOrders: (coder.completedOrders || 0) + 1,
-          activeOrderId: null,
-          lastActive: new Date().toISOString()
+          completedorders: (coder.completedorders || 0) + 1,  // minuscule
+          activeorderid: null,  // minuscule
+          lastactive: new Date().toISOString()  // minuscule
         })
-        .eq('userId', userId)
+        .eq('userid', userId)  // minuscule
         .select();
       
       if (error) throw error;

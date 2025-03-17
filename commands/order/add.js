@@ -1,4 +1,4 @@
-// commands/order/add.js - Version mise à jour avec Modal
+// commands/order/add.js - Version mise à jour avec support pour slash commands
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { 
   ActionRowBuilder, 
@@ -18,11 +18,16 @@ module.exports = {
   description: 'Créer une nouvelle offre de travail',
   requiredChannel: CREATE_ORDERS_CHANNEL_ID,
   
-  async execute(message, args, client) {
+  async execute(interaction, args, client) {
     try {
+      // Déterminer si c'est une interaction slash command ou un message traditionnel
+      const isSlash = interaction.isChatInputCommand?.();
+      const userid = isSlash ? interaction.user.id : interaction.author.id;
+      
       // Check if user is already creating an order
-      if (client.activeOrders.has(message.author.id)) {
-        return message.reply('Vous avez déjà une création d\'offre en cours. Terminez-la ou annulez-la avant d\'en créer une nouvelle.');
+      if (client.activeOrders.has(userid)) {
+        const reply = 'Vous avez déjà une création d\'offre en cours. Terminez-la ou annulez-la avant d\'en créer une nouvelle.';
+        return isSlash ? interaction.reply({ content: reply, ephemeral: true }) : interaction.reply(reply);
       }
       
       // Start a new order session
@@ -30,23 +35,40 @@ module.exports = {
         step: 0,
         data: {},
         startedAt: Date.now(),
-        channelId: message.channel.id,
-        orderId: Date.now().toString().slice(-8) // Simple ID generation
+        channelid: isSlash ? interaction.channelid : interaction.channel.id,
+        orderid: Date.now().toString().slice(-8) // Simple ID generation
       };
       
       // Add to active sessions
-      client.activeOrders.set(message.author.id, orderSession);
+      client.activeOrders.set(userid, orderSession);
       
       // Begin the order creation process
-      await message.reply('Commençons la création d\'une nouvelle offre. Veuillez répondre aux questions suivantes:');
-      await message.channel.send('**Étape 1/3**: Quel est le nom du client pour cette offre?');
+      if (isSlash) {
+        await interaction.reply({ 
+          content: 'Commençons la création d\'une nouvelle offre. Veuillez répondre aux questions suivantes:',
+          ephemeral: false 
+        });
+        await interaction.channel.send('**Étape 1/3**: Quel est le nom du client pour cette offre?');
+      } else {
+        await interaction.reply('Commençons la création d\'une nouvelle offre. Veuillez répondre aux questions suivantes:');
+        await interaction.channel.send('**Étape 1/3**: Quel est le nom du client pour cette offre?');
+      }
       
       // Log for debugging
-      logger.info(`Order creation started by ${message.author.tag}`);
+      logger.info(`Order creation started by ${isSlash ? interaction.user.tag : interaction.author.tag}`);
       
     } catch (error) {
       logger.error('Error starting order creation:', error);
-      message.reply('Une erreur est survenue lors du démarrage de la création d\'offre.');
+      
+      if (interaction.isChatInputCommand?.()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({ content: 'Une erreur est survenue lors du démarrage de la création d\'offre.', ephemeral: true });
+        } else {
+          await interaction.reply({ content: 'Une erreur est survenue lors du démarrage de la création d\'offre.', ephemeral: true });
+        }
+      } else {
+        interaction.reply('Une erreur est survenue lors du démarrage de la création d\'offre.');
+      }
     }
   }
 };

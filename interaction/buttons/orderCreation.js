@@ -146,6 +146,9 @@ async function showOrderSummary(message, orderSession, client) {
  */
 async function publishOrder(interaction, orderSession, client) {
   try {
+    // Log pour déboguer
+    console.log("Données de l'offre:", orderSession);
+    
     // Create the order in the database
     const orderData = {
       orderId: orderSession.orderId,
@@ -153,7 +156,39 @@ async function publishOrder(interaction, orderSession, client) {
       data: orderSession.data
     };
     
-    await orderDB.create(orderData);
+    // Log avant l'insertion dans la base de données
+    console.log("Données à insérer:", {
+      orderId: orderData.orderId,
+      adminId: orderData.adminId,
+      clientName: orderData.data.clientName || 'Unknown Client',
+      compensation: orderData.data.compensation,
+      description: orderData.data.description
+    });
+    
+    // Tente de créer l'ordre
+    try {
+      await orderDB.create(orderData);
+    } catch (dbError) {
+      logger.error('Error creating order:', dbError);
+      
+      // Répond à l'interaction avec l'erreur
+      try {
+        if (!interaction.replied) {
+          await interaction.update({
+            content: 'Une erreur est survenue lors de la création de l\'offre dans la base de données.',
+            embeds: [],
+            components: []
+          });
+        }
+        
+        // Clear the active order
+        client.activeOrders.delete(interaction.user.id);
+        return;
+      } catch (replyError) {
+        logger.error('Error replying after DB error:', replyError);
+        return;
+      }
+    }
     
     // Create embed for the order
     const embed = new EmbedBuilder()
@@ -181,35 +216,71 @@ async function publishOrder(interaction, orderSession, client) {
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
     
     if (!publishChannel) {
-      return interaction.update({
-        content: 'Erreur: Canal de publication introuvable.',
-        components: []
-      });
+      try {
+        if (!interaction.replied) {
+          await interaction.update({
+            content: 'Erreur: Canal de publication introuvable.',
+            components: []
+          });
+        }
+        return;
+      } catch (channelError) {
+        logger.error('Error responding about missing channel:', channelError);
+        return;
+      }
     }
     
     // Publish the order
-    await publishChannel.send({
-      content: '**📢 Nouvelle opportunité de travail disponible!**',
-      embeds: [embed],
-      components: [row]
-    });
+    try {
+      await publishChannel.send({
+        content: '**📢 Nouvelle opportunité de travail disponible!**',
+        embeds: [embed],
+        components: [row]
+      });
+    } catch (publishError) {
+      logger.error('Error publishing order to channel:', publishError);
+      try {
+        if (!interaction.replied) {
+          await interaction.update({
+            content: 'Une erreur est survenue lors de la publication de l\'offre dans le canal.',
+            components: []
+          });
+        }
+        return;
+      } catch (replyError) {
+        logger.error('Error responding after publish error:', replyError);
+        return;
+      }
+    }
     
     // Clear the active order
     client.activeOrders.delete(interaction.user.id);
     
     // Respond to interaction
-    await interaction.update({
-      content: `✅ Offre #${orderSession.orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
-      embeds: [],
-      components: []
-    });
+    try {
+      if (!interaction.replied) {
+        await interaction.update({
+          content: `✅ Offre #${orderSession.orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (finalError) {
+      logger.error('Error updating final response:', finalError);
+    }
     
   } catch (error) {
     logger.error('Error publishing order:', error);
-    await interaction.update({
-      content: 'Une erreur est survenue lors de la publication de l\'offre.',
-      components: []
-    });
+    try {
+      if (!interaction.replied) {
+        await interaction.update({
+          content: 'Une erreur est survenue lors de la publication de l\'offre.',
+          components: []
+        });
+      }
+    } catch (replyError) {
+      logger.error('Failed to respond with error message:', replyError);
+    }
   }
 }
 

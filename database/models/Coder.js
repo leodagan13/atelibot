@@ -2,12 +2,12 @@
 const mongoose = require('mongoose');
 
 const CoderSchema = new mongoose.Schema({
-  userId: {
+  userid: {
     type: String,
     required: true,
     unique: true
   },
-  activeOrderId: {
+  activeOrderid: {
     type: String,
     default: null
   },

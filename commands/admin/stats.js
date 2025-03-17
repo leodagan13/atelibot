@@ -164,7 +164,7 @@ async function generateOrderStats() {
       const statusEmoji = order.status === 'COMPLETED' ? '✅' : '❌';
       const date = order.completedAt ? new Date(order.completedAt).toLocaleDateString() : 'N/A';
       
-      recentOrdersText += `${statusEmoji} **#${order.orderId}** - ${order.clientName} (${date})\n`;
+      recentOrdersText += `${statusEmoji} **#${order.orderid}** - ${order.clientName} (${date})\n`;
     });
     
     embed.addFields({ name: '🕒 Commandes Récentes', value: recentOrdersText || 'Aucune donnée disponible' });
@@ -207,7 +207,7 @@ async function generateCoderStats() {
     const completionRate = coder.total > 0 ? 
       Math.round((coder.completed / coder.total) * 100) : 0;
     
-    topCodersText += `**${index + 1}. <@${coder.userId}>** - ${coder.completed} commandes terminées (${completionRate}%)\n`;
+    topCodersText += `**${index + 1}. <@${coder.userid}>** - ${coder.completed} commandes terminées (${completionRate}%)\n`;
   });
   
   embed.addFields({ name: '🏆 Meilleurs Codeurs', value: topCodersText || 'Aucune donnée disponible' });
@@ -275,7 +275,7 @@ async function getCoderStats() {
   try {
     const { data, error } = await supabase
       .from('coders')
-      .select('userId, completedOrders')
+      .select('userid, completedOrders')
       .order('completedOrders', { ascending: false });
     
     if (error) throw error;
@@ -284,7 +284,7 @@ async function getCoderStats() {
     
     // Enrich data
     return data.map(coder => ({
-      userId: coder.userId,
+      userid: coder.userid,
       completed: coder.completedOrders || 0,
       total: coder.completedOrders || 0 // Simplified example, could add more precise stats
     }));

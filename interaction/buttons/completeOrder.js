@@ -7,14 +7,14 @@ const logger = require('../../utils/logger');
 /**
  * Gère la complétion d'une offre par un codeur ou un administrateur
  * @param {Object} interaction - Interaction Discord (bouton)
- * @param {String} orderId - Identifiant de l'offre
+ * @param {String} orderid - Identifiant de l'offre
  */
-async function handleOrderCompletion(interaction, orderId) {
+async function handleOrderCompletion(interaction, orderid) {
   try {
-    const userId = interaction.user.id;
+    const userid = interaction.user.id;
     
     // Récupérer les informations de l'offre depuis Supabase
-    const order = await orderDB.findById(orderId);
+    const order = await orderDB.findByid(orderid);
     if (!order) {
       return interaction.reply({
         content: 'Cette offre n\'existe plus.',
@@ -23,7 +23,7 @@ async function handleOrderCompletion(interaction, orderId) {
     }
     
     // Vérifier si l'utilisateur est le codeur assigné ou l'admin qui a posté l'offre
-    if (order.assignedTo !== userId && order.adminId !== userId) {
+    if (order.assignedTo !== userid && order.adminid !== userid) {
       return interaction.reply({
         content: 'Vous n\'êtes pas autorisé à terminer cette offre.',
         ephemeral: true
@@ -39,11 +39,11 @@ async function handleOrderCompletion(interaction, orderId) {
     }
     
     // Mettre à jour l'offre dans la base de données
-    await orderDB.updateStatus(orderId, 'COMPLETED');
+    await orderDB.updateStatus(orderid, 'COMPLETED');
     
     // Si c'est le codeur qui complète l'offre, mettre à jour son profil
-    if (userId === order.assignedTo) {
-      await coderDB.incrementCompletedOrders(userId);
+    if (userid === order.assignedTo) {
+      await coderDB.incrementCompletedOrders(userid);
     }
     
     // Mettre à jour le message d'origine
@@ -57,8 +57,8 @@ async function handleOrderCompletion(interaction, orderId) {
     
     // Envoyer un message de confirmation dans le canal
     await interaction.channel.send({
-      content: `🎉 **Projet terminé!** 🎉\n\nLe projet #${orderId} a été marqué comme terminé par <@${userId}>.\nMerci pour votre travail!`,
-      embeds: [createCompletionEmbed(order, userId)]
+      content: `🎉 **Projet terminé!** 🎉\n\nLe projet #${orderid} a été marqué comme terminé par <@${userid}>.\nMerci pour votre travail!`,
+      embeds: [createCompletionEmbed(order, userid)]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -69,13 +69,13 @@ async function handleOrderCompletion(interaction, orderId) {
     if (historyChannel) {
       const historyEmbed = new EmbedBuilder()
         .setColor('#00FF00')
-        .setTitle(`✅ Commande terminée #${order.orderId}`)
+        .setTitle(`✅ Commande terminée #${order.orderid}`)
         .setDescription(`La commande pour **${order.clientName}** a été terminée avec succès.`)
         .addFields(
           { name: 'Client', value: order.clientName },
           { name: 'Rémunération', value: order.compensation },
           { name: 'Codeur', value: `<@${order.assignedTo}>` },
-          { name: 'Admin responsable', value: `<@${order.adminId}>` },
+          { name: 'Admin responsable', value: `<@${order.adminid}>` },
           { name: 'Durée du projet', value: getProjectDuration(order) }
         )
         .setTimestamp();
@@ -103,7 +103,7 @@ async function updateOriginalMessage(interaction, order) {
   const projectMessage = messages.find(m => 
     m.embeds.length > 0 && 
     m.embeds[0].title && 
-    m.embeds[0].title.includes(`Projet #${order.orderId}`)
+    m.embeds[0].title.includes(`Projet #${order.orderid}`)
   );
   
   if (projectMessage) {
@@ -143,7 +143,7 @@ function createCompletionEmbed(order, completedBy) {
     .setTitle('Projet terminé')
     .setDescription(`Le projet pour ${order.clientName} a été terminé avec succès.`)
     .addFields(
-      { name: 'ID du projet', value: order.orderId },
+      { name: 'ID du projet', value: order.orderid },
       { name: 'Terminé par', value: `<@${completedBy}>` },
       { name: 'Date de complétion', value: new Date().toLocaleDateString() }
     )

@@ -14,7 +14,7 @@ module.exports = {
       return message.reply('Veuillez fournir l\'ID de l\'offre à annuler. Exemple: `$order cancel 1234`');
     }
     
-    const orderId = args[0];
+    const orderid = args[0];
     
     try {
       // Find the order in database
@@ -25,7 +25,7 @@ module.exports = {
       }
       
       // Check if user is the admin who created the order
-      if (order.adminId !== message.author.id) {
+      if (order.adminid !== message.author.id) {
         const isAdmin = message.member.roles.cache.some(role => 
           adminRoles.includes(role.name)
         );
@@ -38,20 +38,20 @@ module.exports = {
       // If the order is assigned to a coder, update the coder's status
       if (order.assignedTo) {
         await coderDB.update(order.assignedTo, {
-          activeOrderId: null
+          activeOrderid: null
         });
       }
       
       // Update order status
-      await orderDB.update(orderId, {
+      await orderDB.update(orderid, {
         status: 'CANCELLED'
       });
       
       // Try to update the original message
       try {
-        const channel = message.guild.channels.cache.get(order.channelId);
+        const channel = message.guild.channels.cache.get(order.channelid);
         if (channel) {
-          const orderMessage = await channel.messages.fetch(order.messageId);
+          const orderMessage = await channel.messages.fetch(order.messageid);
           if (orderMessage) {
             // Disable the button in the first action row
             const components = orderMessage.components;
@@ -65,13 +65,13 @@ module.exports = {
           }
         }
       } catch (err) {
-        logger.error(`Failed to update message for cancelled order ${orderId}:`, err);
+        logger.error(`Failed to update message for cancelled order ${orderid}:`, err);
       }
       
       // If there's a private channel, notify and archive it
-      if (order.privateChannelId) {
+      if (order.privateChannelid) {
         try {
-          const privateChannel = message.guild.channels.cache.get(order.privateChannelId);
+          const privateChannel = message.guild.channels.cache.get(order.privateChannelid);
           if (privateChannel) {
             await privateChannel.send({
               content: `⚠️ **Cette offre a été annulée par <@${message.author.id}>.**`
@@ -81,19 +81,19 @@ module.exports = {
             try {
               await privateChannel.setArchived(true);
             } catch (archiveErr) {
-              logger.error(`Failed to archive channel for order ${orderId}:`, archiveErr);
+              logger.error(`Failed to archive channel for order ${orderid}:`, archiveErr);
             }
           }
         } catch (channelErr) {
-          logger.error(`Failed to notify private channel for order ${orderId}:`, channelErr);
+          logger.error(`Failed to notify private channel for order ${orderid}:`, channelErr);
         }
       }
       
-      message.reply(`L'offre #${orderId} a été annulée avec succès.`);
-      logger.info(`Order ${orderId} cancelled by ${message.author.id}`);
+      message.reply(`L'offre #${orderid} a été annulée avec succès.`);
+      logger.info(`Order ${orderid} cancelled by ${message.author.id}`);
       
     } catch (error) {
-      logger.error(`Error cancelling order ${orderId}:`, error);
+      logger.error(`Error cancelling order ${orderid}:`, error);
       message.reply('Une erreur est survenue lors de l\'annulation de l\'offre.');
     }
   }

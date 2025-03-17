@@ -1,6 +1,6 @@
 // deploy-commands.js
 const { REST, Routes } = require('discord.js');
-const { clientId, guildId } = require('./config/config');
+const { clientid, guildid } = require('./config/config');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -39,7 +39,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
     // The put method is used to fully refresh all commands
     const data = await rest.put(
-      Routes.applicationGuildCommands(clientId, guildId),
+      Routes.applicationGuildCommands(clientid, guildid),
       { body: commands },
     );
 

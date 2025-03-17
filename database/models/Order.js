@@ -2,12 +2,12 @@
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
-  orderId: {
+  orderid: {
     type: String,
     required: true,
     unique: true
   },
-  adminId: {
+  adminid: {
     type: String,
     required: true
   },
@@ -28,15 +28,15 @@ const OrderSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  messageId: {
+  messageid: {
     type: String,
     required: true
   },
-  channelId: {
+  channelid: {
     type: String,
     required: true
   },
-  privateChannelId: {
+  privateChannelid: {
     type: String,
     default: null
   },

@@ -105,7 +105,7 @@ module.exports = {
         }
         
         embed.addFields({
-          name: `${statusEmoji} Commande #${order.orderId} - ${order.clientName}`,
+          name: `${statusEmoji} Commande #${order.orderid} - ${order.clientName}`,
           value: `**Statut:** ${order.status}\n` +
                  `**Rémunération:** ${order.compensation}\n` +
                  `**Codeur:** ${order.assignedTo ? `<@${order.assignedTo}>` : 'Non assigné'}\n` +

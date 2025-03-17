@@ -4,17 +4,17 @@
 -- Orders table
 CREATE TABLE IF NOT EXISTS public.orders (
   id SERIAL PRIMARY KEY,
-  orderId TEXT NOT NULL UNIQUE,
-  adminId TEXT NOT NULL,
-  clientName TEXT NOT NULL,
+  orderid TEXT NOT NULL UNIQUE,
+  adminid TEXT NOT NULL,
+  clientname TEXT NOT NULL,
   compensation TEXT NOT NULL,
   description TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('OPEN', 'ASSIGNED', 'COMPLETED', 'CANCELLED')),
-  assignedTo TEXT,
-  assignedAt TIMESTAMP WITH TIME ZONE,
-  completedAt TIMESTAMP WITH TIME ZONE,
-  createdAt TIMESTAMP WITH TIME ZONE NOT NULL,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  assignedto TEXT,
+  assignedat TIMESTAMP WITH TIME ZONE,
+  completedat TIMESTAMP WITH TIME ZONE,
+  createdat TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updatedat TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Enable RLS (Row Level Security)
@@ -36,10 +36,10 @@ CREATE POLICY "Allow authenticated users to update orders"
 -- Coders table
 CREATE TABLE IF NOT EXISTS public.coders (
   id SERIAL PRIMARY KEY,
-  userId TEXT NOT NULL UNIQUE,
-  activeOrderId TEXT,
-  completedOrders INTEGER DEFAULT 0,
-  lastActive TIMESTAMP WITH TIME ZONE
+  userid TEXT NOT NULL UNIQUE,
+  activeorderid TEXT,
+  completedorders INTEGER DEFAULT 0,
+  lastactive TIMESTAMP WITH TIME ZONE
 );
 
 -- Enable RLS
@@ -62,7 +62,7 @@ CREATE POLICY "Allow authenticated users to update coders"
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-   NEW.updatedAt = NOW();
+   NEW.updatedat = NOW();
    RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -70,3 +70,12 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_orders_updatedAt
   BEFORE UPDATE ON public.orders
   FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- Policies
+CREATE POLICY IF NOT EXISTS "Allow all for orders" 
+  ON public.orders FOR ALL 
+  USING (true);
+
+CREATE POLICY IF NOT EXISTS "Allow all for coders" 
+  ON public.coders FOR ALL 
+  USING (true);

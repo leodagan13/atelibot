@@ -7,17 +7,17 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SelectMenuBu
  * @param {String} coderId - ID du codeur
  * @returns {Object} - Objet contenant l'embed et la ligne de composants
  */
-function createChannelEmbed(order, coderId) {
+function createChannelEmbed(order, coderid) {
   const embed = new EmbedBuilder()
     .setColor('#00ff00')
-    .setTitle(`Projet #${order.orderId}`)
+    .setTitle(`Projet #${order.orderid}`)
     .setDescription('Ce canal a été créé pour la communication entre l\'administrateur, le codeur et le client.')
     .addFields(
       { name: 'Client', value: order.clientName },
       { name: 'Rémunération', value: order.compensation },
       { name: 'Description', value: order.description },
-      { name: 'Codeur', value: `<@${coderId}>` },
-      { name: 'Administrateur', value: `<@${order.adminId}>` }
+      { name: 'Codeur', value: `<@${coderid}>` },
+      { name: 'Administrateur', value: `<@${order.adminid}>` }
     )
     .setTimestamp();
   
@@ -25,7 +25,7 @@ function createChannelEmbed(order, coderId) {
   const statusMenu = new ActionRowBuilder()
     .addComponents(
       new SelectMenuBuilder()
-        .setCustomId(`order_status_${order.orderId}`)
+        .setCustomId(`order_status_${order.orderid}`)
         .setPlaceholder('Mettre à jour le statut')
         .addOptions([
           {

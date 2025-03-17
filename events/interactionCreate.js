@@ -43,33 +43,41 @@ module.exports = {
       
       // Handle button interactions
       else if (interaction.isButton()) {
-        const customId = interaction.customId;
+        const customid = interaction.customid;
         
         // Handle order acceptance
-        if (customId.startsWith('accept_order_')) {
-          const orderId = customId.replace('accept_order_', '');
-          await handleOrderAcceptance(interaction, orderId);
+        if (customid.startsWith('accept_order_')) {
+          const orderid = customid.replace('accept_order_', '');
+          await handleOrderAcceptance(interaction, orderid);
         }
         
         // Handle order completion
-        else if (customId.startsWith('complete_order_')) {
-          const orderId = customId.replace('complete_order_', '');
-          await handleOrderCompletion(interaction, orderId);
+        else if (customid.startsWith('complete_order_')) {
+          const orderid = customid.replace('complete_order_', '');
+          await handleOrderCompletion(interaction, orderid);
         }
         
         // Handle order confirmation/cancellation in creation flow
-        else if (customId.startsWith('confirm_order_')) {
-          const userId = customId.replace('confirm_order_', '');
-          // Verify user is the one who started the order
-          if (interaction.user.id === userId) {
+        else if (customid.startsWith('confirm_order_')) {
+          const userid = customid.replace('confirm_order_', '');
+          // Vérifier que l'utilisateur est celui qui a commencé l'ordre
+          if (interaction.user.id === userid) {
             const orderCreation = require('../interaction/buttons/orderCreation');
-            await orderCreation.publishOrder(interaction, orderSession, client);
+            const orderSession = client.activeOrders.get(userid);
+            if (orderSession) {
+              await orderCreation.publishOrder(interaction, orderSession, client);
+            } else {
+              await interaction.update({
+                content: 'Session de création d\'offre non trouvée ou expirée.',
+                components: []
+              });
+            }
           }
         }
-        else if (customId.startsWith('cancel_order_')) {
-          const userId = customId.replace('cancel_order_', '');
-          // Verify user is the one who started the order
-          if (interaction.user.id === userId) {
+        else if (customid.startsWith('cancel_order_')) {
+          const userid = customid.replace('cancel_order_', '');
+          // Vérifier que l'utilisateur est celui qui a commencé l'ordre
+          if (interaction.user.id === userid) {
             const orderCreation = require('../interaction/buttons/orderCreation');
             await orderCreation.cancelOrder(interaction, client);
           }
@@ -78,28 +86,27 @@ module.exports = {
       
       // Handle select menu interactions
       else if (interaction.isSelectMenu()) {
-        const customId = interaction.customId;
+        const customid = interaction.customid;
         
         // Handle order status updates
-        if (customId.startsWith('order_status_')) {
-          const orderId = customId.replace('order_status_', '');
-          await handleOrderStatusUpdate(interaction, orderId);
+        if (customid.startsWith('order_status_')) {
+          const orderid = customid.replace('order_status_', '');
+          await handleOrderStatusUpdate(interaction, orderid);
         }
       }
     } catch (error) {
       logger.error('Error handling interaction:', error);
       
       // If the interaction hasn't been replied to already, send an error message
-      if (interaction.deferred || interaction.replied) {
-        await interaction.followUp({
-          content: 'Une erreur est survenue lors du traitement de cette interaction.',
-          ephemeral: true
-        });
-      } else {
-        await interaction.reply({
-          content: 'Une erreur est survenue lors du traitement de cette interaction.',
-          ephemeral: true
-        });
+      if (!interaction.replied && !interaction.deferred) {
+        try {
+          await interaction.reply({
+            content: 'Une erreur est survenue lors du traitement de cette interaction.',
+            ephemeral: true
+          });
+        } catch (replyError) {
+          logger.error('Error sending error response:', replyError);
+        }
       }
     }
   }

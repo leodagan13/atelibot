@@ -85,10 +85,10 @@ module.exports = {
         }
         
         embed.addFields({
-          name: `${statusEmoji} Offre #${order.orderId}`,
+          name: `${statusEmoji} Offre #${order.orderid}`,
           value: `**Client:** ${order.clientName}\n` +
                  `**Rémunération:** ${order.compensation}\n` +
-                 `**Posté par:** <@${order.adminId}>\n` +
+                 `**Posté par:** <@${order.adminid}>\n` +
                  `**Créé le:** ${new Date(order.createdAt).toLocaleDateString()}\n` +
                  `${order.assignedTo ? `**Assigné à:** <@${order.assignedTo}>` : ''}`
         });
