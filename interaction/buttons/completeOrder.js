@@ -7,14 +7,14 @@ const logger = require('../../utils/logger');
 /**
  * Gère la complétion d'une offre par un codeur ou un administrateur
  * @param {Object} interaction - Interaction Discord (bouton)
- * @param {String} orderid - Identifiant de l'offre
+ * @param {String} orderId - Identifiant de l'offre
  */
-async function handleOrderCompletion(interaction, orderid) {
+async function handleOrderCompletion(interaction, orderId) {
   try {
-    const userid = interaction.user.id;
+    const userId = interaction.user.id;
     
     // Récupérer les informations de l'offre depuis Supabase
-    const order = await orderDB.findByid(orderid);
+    const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
         content: 'Cette offre n\'existe plus.',
@@ -23,7 +23,7 @@ async function handleOrderCompletion(interaction, orderid) {
     }
     
     // Vérifier si l'utilisateur est le codeur assigné ou l'admin qui a posté l'offre
-    if (order.assignedTo !== userid && order.adminid !== userid) {
+    if (order.assignedto !== userId && order.adminid !== userId) {
       return interaction.reply({
         content: 'Vous n\'êtes pas autorisé à terminer cette offre.',
         ephemeral: true
@@ -39,11 +39,11 @@ async function handleOrderCompletion(interaction, orderid) {
     }
     
     // Mettre à jour l'offre dans la base de données
-    await orderDB.updateStatus(orderid, 'COMPLETED');
+    await orderDB.updateStatus(orderId, 'COMPLETED');
     
     // Si c'est le codeur qui complète l'offre, mettre à jour son profil
-    if (userid === order.assignedTo) {
-      await coderDB.incrementCompletedOrders(userid);
+    if (userId === order.assignedto) {
+      await coderDB.incrementCompletedOrders(userId);
     }
     
     // Mettre à jour le message d'origine
@@ -57,8 +57,8 @@ async function handleOrderCompletion(interaction, orderid) {
     
     // Envoyer un message de confirmation dans le canal
     await interaction.channel.send({
-      content: `🎉 **Projet terminé!** 🎉\n\nLe projet #${orderid} a été marqué comme terminé par <@${userid}>.\nMerci pour votre travail!`,
-      embeds: [createCompletionEmbed(order, userid)]
+      content: `🎉 **Projet terminé!** 🎉\n\nLe projet #${orderId} a été marqué comme terminé par <@${userId}>.\nMerci pour votre travail!`,
+      embeds: [createCompletionEmbed(order, userId)]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -70,11 +70,11 @@ async function handleOrderCompletion(interaction, orderid) {
       const historyEmbed = new EmbedBuilder()
         .setColor('#00FF00')
         .setTitle(`✅ Commande terminée #${order.orderid}`)
-        .setDescription(`La commande pour **${order.clientName}** a été terminée avec succès.`)
+        .setDescription(`La commande pour **${order.clientname}** a été terminée avec succès.`)
         .addFields(
-          { name: 'Client', value: order.clientName },
+          { name: 'Client', value: order.clientname },
           { name: 'Rémunération', value: order.compensation },
-          { name: 'Codeur', value: `<@${order.assignedTo}>` },
+          { name: 'Codeur', value: `<@${order.assignedto}>` },
           { name: 'Admin responsable', value: `<@${order.adminid}>` },
           { name: 'Durée du projet', value: getProjectDuration(order) }
         )
@@ -141,7 +141,7 @@ function createCompletionEmbed(order, completedBy) {
   return new EmbedBuilder()
     .setColor('#00FF00')
     .setTitle('Projet terminé')
-    .setDescription(`Le projet pour ${order.clientName} a été terminé avec succès.`)
+    .setDescription(`Le projet pour ${order.clientname} a été terminé avec succès.`)
     .addFields(
       { name: 'ID du projet', value: order.orderid },
       { name: 'Terminé par', value: `<@${completedBy}>` },
@@ -156,12 +156,12 @@ function createCompletionEmbed(order, completedBy) {
  * @returns {String} - Durée formatée
  */
 function getProjectDuration(order) {
-  if (!order.assignedAt || !order.completedAt) {
+  if (!order.assignedat || !order.completedat) {
     return 'Non disponible';
   }
   
-  const assignedDate = new Date(order.assignedAt);
-  const completedDate = new Date(order.completedAt);
+  const assignedDate = new Date(order.assignedat);
+  const completedDate = new Date(order.completedat);
   const durationMs = completedDate - assignedDate;
   
   // Convertir en jours, heures, minutes

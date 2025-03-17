@@ -82,6 +82,8 @@ module.exports = {
       const activeOrder = client.activeOrders.get(message.author.id);
       if (activeOrder) {
         logger.debug(`Processing order input for user: ${message.author.id}`);
+        logger.debug(`Order session: ${JSON.stringify(activeOrder)}`);
+        logger.debug(`Message in channel: ${message.channel.id}, Session channel: ${activeOrder.channelid}`);
         orderCreation.processOrderInput(message, activeOrder, client);
       }
     }

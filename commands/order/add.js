@@ -1,11 +1,5 @@
 // commands/order/add.js - Version mise à jour avec support pour slash commands
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { 
-  ActionRowBuilder, 
-  ModalBuilder, 
-  TextInputBuilder, 
-  TextInputStyle 
-} = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
 
@@ -22,25 +16,29 @@ module.exports = {
     try {
       // Déterminer si c'est une interaction slash command ou un message traditionnel
       const isSlash = interaction.isChatInputCommand?.();
-      const userid = isSlash ? interaction.user.id : interaction.author.id;
+      const userId = isSlash ? interaction.user.id : interaction.author.id;
       
       // Check if user is already creating an order
-      if (client.activeOrders.has(userid)) {
+      if (client.activeOrders.has(userId)) {
         const reply = 'Vous avez déjà une création d\'offre en cours. Terminez-la ou annulez-la avant d\'en créer une nouvelle.';
         return isSlash ? interaction.reply({ content: reply, ephemeral: true }) : interaction.reply(reply);
       }
+      
+      // Générer un ID unique avec timestamp + random string pour éviter les doublons
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const orderId = `${Date.now().toString().slice(-8)}-${randomString}`;
       
       // Start a new order session
       const orderSession = {
         step: 0,
         data: {},
         startedAt: Date.now(),
-        channelid: isSlash ? interaction.channelid : interaction.channel.id,
-        orderid: Date.now().toString().slice(-8) // Simple ID generation
+        channelid: isSlash ? interaction.channelId : interaction.channel.id,
+        orderId: orderId
       };
       
       // Add to active sessions
-      client.activeOrders.set(userid, orderSession);
+      client.activeOrders.set(userId, orderSession);
       
       // Begin the order creation process
       if (isSlash) {

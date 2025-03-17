@@ -3,6 +3,7 @@
 const { handleOrderAcceptance } = require('../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../interaction/buttons/completeOrder');
 const { handleOrderStatusUpdate } = require('../interaction/selectMenus/orderStatus');
+const { publishOrder, cancelOrder } = require('../interaction/buttons/orderCreation');
 const logger = require('../utils/logger');
 
 module.exports = {
@@ -43,55 +44,84 @@ module.exports = {
       
       // Handle button interactions
       else if (interaction.isButton()) {
-        const customid = interaction.customid;
+        const customId = interaction.customId;
         
-        // Handle order acceptance
-        if (customid.startsWith('accept_order_')) {
-          const orderid = customid.replace('accept_order_', '');
-          await handleOrderAcceptance(interaction, orderid);
-        }
-        
-        // Handle order completion
-        else if (customid.startsWith('complete_order_')) {
-          const orderid = customid.replace('complete_order_', '');
-          await handleOrderCompletion(interaction, orderid);
-        }
-        
-        // Handle order confirmation/cancellation in creation flow
-        else if (customid.startsWith('confirm_order_')) {
-          const userid = customid.replace('confirm_order_', '');
-          // Vérifier que l'utilisateur est celui qui a commencé l'ordre
-          if (interaction.user.id === userid) {
-            const orderCreation = require('../interaction/buttons/orderCreation');
-            const orderSession = client.activeOrders.get(userid);
-            if (orderSession) {
-              await orderCreation.publishOrder(interaction, orderSession, client);
-            } else {
-              await interaction.update({
-                content: 'Session de création d\'offre non trouvée ou expirée.',
-                components: []
-              });
-            }
+        try {
+          // Ordre d'acceptation
+          if (customId.startsWith('accept_order_')) {
+            const orderId = customId.replace('accept_order_', '');
+            await handleOrderAcceptance(interaction, orderId);
           }
-        }
-        else if (customid.startsWith('cancel_order_')) {
-          const userid = customid.replace('cancel_order_', '');
-          // Vérifier que l'utilisateur est celui qui a commencé l'ordre
-          if (interaction.user.id === userid) {
-            const orderCreation = require('../interaction/buttons/orderCreation');
-            await orderCreation.cancelOrder(interaction, client);
+          
+          // Ordre de complétion
+          else if (customId.startsWith('complete_order_')) {
+            const orderId = customId.replace('complete_order_', '');
+            await handleOrderCompletion(interaction, orderId);
+          }
+          
+          // Confirmation d'ordre - nouvelle méthode utilisant des identifiants uniques
+          else if (customId.startsWith('confirm_order_')) {
+            // Cette partie est désormais gérée par le collector dans orderCreation.js
+            // On ne fait rien ici, pour éviter une double manipulation
+          }
+          
+          // Annulation d'ordre - nouvelle méthode utilisant des identifiants uniques
+          else if (customId.startsWith('cancel_order_')) {
+            // Cette partie est désormais gérée par le collector dans orderCreation.js
+            // On ne fait rien ici, pour éviter une double manipulation
+          }
+          
+          // Boutons non reconnus
+          else {
+            logger.warn(`Unrecognized button customId: ${customId}`);
+          }
+        } catch (error) {
+          logger.error(`Error handling button interaction (${customId}):`, error);
+          
+          try {
+            // Si l'interaction est encore valide, répondre
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                content: 'Une erreur est survenue lors du traitement de cette interaction.',
+                ephemeral: true
+              });
+            } else {
+              // Sinon, envoyer dans le canal
+              await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
+            }
+          } catch (replyError) {
+            logger.error('Error sending error response:', replyError);
           }
         }
       }
       
       // Handle select menu interactions
       else if (interaction.isSelectMenu()) {
-        const customid = interaction.customid;
+        const customId = interaction.customId;
         
-        // Handle order status updates
-        if (customid.startsWith('order_status_')) {
-          const orderid = customid.replace('order_status_', '');
-          await handleOrderStatusUpdate(interaction, orderid);
+        try {
+          // Handle order status updates
+          if (customId.startsWith('order_status_')) {
+            const orderId = customId.replace('order_status_', '');
+            await handleOrderStatusUpdate(interaction, orderId);
+          } else {
+            logger.warn(`Unrecognized select menu customId: ${customId}`);
+          }
+        } catch (error) {
+          logger.error(`Error handling select menu interaction (${customId}):`, error);
+          
+          try {
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                content: 'Une erreur est survenue lors du traitement de cette interaction.',
+                ephemeral: true
+              });
+            } else {
+              await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
+            }
+          } catch (replyError) {
+            logger.error('Error sending error response:', replyError);
+          }
         }
       }
     } catch (error) {
@@ -106,6 +136,11 @@ module.exports = {
           });
         } catch (replyError) {
           logger.error('Error sending error response:', replyError);
+          try {
+            await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
+          } catch (channelError) {
+            logger.error('Failed to send error message to channel:', channelError);
+          }
         }
       }
     }

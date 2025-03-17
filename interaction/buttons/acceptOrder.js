@@ -16,15 +16,15 @@ const logger = require('../../utils/logger');
 /**
  * Gère l'acceptation d'une offre par un codeur
  * @param {Object} interaction - Interaction Discord (bouton)
- * @param {String} orderid - Identifiant de l'offre
+ * @param {String} orderId - Identifiant de l'offre
  */
 async function handleOrderAcceptance(interaction, orderId) {
   try {
-    const coderid = interaction.user.id;
+    const coderId = interaction.user.id;
     
     // Vérifier si le codeur travaille déjà sur un autre projet
-    const coderData = await coderDB.findByUserid(coderid);
-    if (coderData && coderData.activeOrderid) {
+    const coderData = await coderDB.findByUserId(coderId);
+    if (coderData && coderData.activeorderid) {
       return interaction.reply({
         content: 'Vous travaillez déjà sur un autre projet. Terminez-le avant d\'en accepter un nouveau.',
         ephemeral: true
@@ -32,7 +32,7 @@ async function handleOrderAcceptance(interaction, orderId) {
     }
     
     // Récupérer les informations de l'offre depuis Supabase
-    const order = await orderDB.findByid(orderid);
+    const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
         content: 'Cette offre n\'existe plus ou a déjà été prise.',
@@ -48,20 +48,20 @@ async function handleOrderAcceptance(interaction, orderId) {
     }
     
     // Mettre à jour l'offre dans la base de données
-    await orderDB.updateStatus(orderid, 'ASSIGNED', coderid);
+    await orderDB.updateStatus(orderId, 'ASSIGNED', coderId);
     
     // Mettre à jour le codeur dans la base de données
-    await coderDB.setActiveOrder(coderid, orderid);
+    await coderDB.setActiveOrder(coderId, orderId);
     
     // Ajouter le codeur à la liste des codeurs actifs en mémoire
-    activeCoders.add(coderid);
+    activeCoders.add(coderId);
     
     // Créer un channel privé
     const guild = interaction.guild;
-    const privateChannel = await createPrivateChannel(guild, order, coderid);
+    const privateChannel = await createPrivateChannel(guild, order, coderId);
     
     // Envoyer un message dans le nouveau canal
-    await sendInitialMessage(privateChannel, order, coderid);
+    await sendInitialMessage(privateChannel, order, coderId);
     
     // Répondre à l'interaction
     await interaction.reply({
@@ -85,10 +85,10 @@ async function handleOrderAcceptance(interaction, orderId) {
  * Crée un canal privé pour le projet
  * @param {Object} guild - Serveur Discord
  * @param {Object} order - Données de l'offre
- * @param {String} coderid - ID du codeur
+ * @param {String} coderId - ID du codeur
  * @returns {Object} - Le canal créé
  */
-async function createPrivateChannel(guild, order, coderid) {
+async function createPrivateChannel(guild, order, coderId) {
   return await guild.channels.create({
     name: `projet-${order.orderid}`,
     type: ChannelType.GuildText,
@@ -98,7 +98,7 @@ async function createPrivateChannel(guild, order, coderid) {
         deny: [PermissionsBitField.Flags.ViewChannel]
       },
       {
-        id: coderid, // Codeur
+        id: coderId, // Codeur
         allow: [PermissionsBitField.Flags.ViewChannel]
       },
       {
@@ -117,19 +117,19 @@ async function createPrivateChannel(guild, order, coderid) {
  * Envoie un message initial dans le canal du projet
  * @param {Object} channel - Canal Discord
  * @param {Object} order - Données de l'offre
- * @param {String} coderid - ID du codeur
+ * @param {String} coderId - ID du codeur
  */
-async function sendInitialMessage(channel, order, coderid) {
+async function sendInitialMessage(channel, order, coderId) {
   // Create project embed
   const projectEmbed = new EmbedBuilder()
     .setColor('#00ff00')
     .setTitle(`Projet #${order.orderid}`)
     .setDescription('Ce canal a été créé pour la communication entre l\'administrateur, le codeur et le client.')
     .addFields(
-      { name: 'Client', value: order.clientName },
+      { name: 'Client', value: order.clientname },
       { name: 'Rémunération', value: order.compensation },
       { name: 'Description', value: order.description },
-      { name: 'Codeur', value: `<@${coderid}>` },
+      { name: 'Codeur', value: `<@${coderId}>` },
       { name: 'Administrateur', value: `<@${order.adminid}>` }
     )
     .setTimestamp();
@@ -138,7 +138,7 @@ async function sendInitialMessage(channel, order, coderid) {
   const statusMenu = new ActionRowBuilder()
     .addComponents(
       ButtonBuilder.from({
-        custom_id: `complete_order_${order.orderId}`,
+        custom_id: `complete_order_${order.orderid}`,
         label: 'Marquer comme terminé',
         style: ButtonStyle.Success,
         type: 2
@@ -150,7 +150,7 @@ async function sendInitialMessage(channel, order, coderid) {
     components: [statusMenu]
   });
   
-  await channel.send(`Bienvenue dans le canal du projet! <@${coderid}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail pour ${order.clientName}.`);
+  await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail pour ${order.clientname}.`);
 }
 
 /**
