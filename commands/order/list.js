@@ -86,7 +86,7 @@ module.exports = {
         
         embed.addFields({
           name: `${statusEmoji} Offre #${order.orderid}`,
-          value: `**Client:** ${order.clientName}\n` +
+          value: `**Client:** Client confidentiel\n` +
                  `**Rémunération:** ${order.compensation}\n` +
                  `**Posté par:** <@${order.adminid}>\n` +
                  `**Créé le:** ${new Date(order.createdAt).toLocaleDateString()}\n` +

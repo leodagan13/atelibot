@@ -226,7 +226,7 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       .setColor('#00ff00')
       .setTitle(`Nouvelle offre #${uniqueOrderId}`)
       .addFields(
-        { name: 'Client', value: orderSession.data.clientName },
+        { name: 'Client', value: 'Client confidentiel' },
         { name: 'Rémunération', value: orderSession.data.compensation },
         { name: 'Description', value: orderSession.data.description },
         { name: 'Posté par', value: `<@${userId}>` }

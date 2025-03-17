@@ -164,7 +164,7 @@ async function generateOrderStats() {
       const statusEmoji = order.status === 'COMPLETED' ? '✅' : '❌';
       const date = order.completedAt ? new Date(order.completedAt).toLocaleDateString() : 'N/A';
       
-      recentOrdersText += `${statusEmoji} **#${order.orderid}** - ${order.clientName} (${date})\n`;
+      recentOrdersText += `${statusEmoji} **#${order.orderid}** - Client confidentiel (${date})\n`;
     });
     
     embed.addFields({ name: '🕒 Commandes Récentes', value: recentOrdersText || 'Aucune donnée disponible' });

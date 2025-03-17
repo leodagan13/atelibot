@@ -126,7 +126,7 @@ async function sendInitialMessage(channel, order, coderId) {
     .setTitle(`Projet #${order.orderid}`)
     .setDescription('Ce canal a été créé pour la communication entre l\'administrateur, le codeur et le client.')
     .addFields(
-      { name: 'Client', value: order.clientname },
+      { name: 'Client', value: 'Client confidentiel' },
       { name: 'Rémunération', value: order.compensation },
       { name: 'Description', value: order.description },
       { name: 'Codeur', value: `<@${coderId}>` },
@@ -150,7 +150,7 @@ async function sendInitialMessage(channel, order, coderId) {
     components: [statusMenu]
   });
   
-  await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail pour ${order.clientname}.`);
+  await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);
 }
 
 /**

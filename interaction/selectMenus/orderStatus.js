@@ -99,9 +99,9 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         const historyEmbed = new EmbedBuilder()
           .setColor(color)
           .setTitle(`${emoji} ${title} #${order.orderId}`)
-          .setDescription(`La commande pour **${order.clientName}** a été ${newStatus === 'COMPLETED' ? 'terminée' : 'annulée'}.`)
+          .setDescription(`La commande a été ${newStatus === 'COMPLETED' ? 'terminée' : 'annulée'}.`)
           .addFields(
-            { name: 'Client', value: order.clientName },
+            { name: 'Client', value: 'Client confidentiel' },
             { name: 'Rémunération', value: order.compensation },
             { name: 'Codeur', value: order.assignedTo ? `<@${order.assignedTo}>` : 'Non assigné' },
             { name: 'Admin responsable', value: `<@${order.adminId}>` },

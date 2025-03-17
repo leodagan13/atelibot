@@ -70,9 +70,9 @@ async function handleOrderCompletion(interaction, orderId) {
       const historyEmbed = new EmbedBuilder()
         .setColor('#00FF00')
         .setTitle(`✅ Commande terminée #${order.orderid}`)
-        .setDescription(`La commande pour **${order.clientname}** a été terminée avec succès.`)
+        .setDescription(`La commande a été terminée avec succès.`)
         .addFields(
-          { name: 'Client', value: order.clientname },
+          { name: 'Client', value: 'Client confidentiel' },
           { name: 'Rémunération', value: order.compensation },
           { name: 'Codeur', value: `<@${order.assignedto}>` },
           { name: 'Admin responsable', value: `<@${order.adminid}>` },
@@ -141,7 +141,7 @@ function createCompletionEmbed(order, completedBy) {
   return new EmbedBuilder()
     .setColor('#00FF00')
     .setTitle('Projet terminé')
-    .setDescription(`Le projet pour ${order.clientname} a été terminé avec succès.`)
+    .setDescription(`Le projet a été terminé avec succès.`)
     .addFields(
       { name: 'ID du projet', value: order.orderid },
       { name: 'Terminé par', value: `<@${completedBy}>` },
