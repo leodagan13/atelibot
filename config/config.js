@@ -17,7 +17,7 @@ const HISTORY_ORDERS_CHANNEL_ID = '1350566173044904077';
 
 // Client and Guild IDs for slash commands
 const clientid = '1350474929266491402';  // lowercase to match database
-const guildid = '1350455031743094804';   // lowercase to match database
+const guildid = '1350455133309505558';   // lowercase to match database
 
 // Roles that can create orders
 const adminRoles = ['Admin', 'Moderator', 'Opportunity Curator'];
