@@ -4,6 +4,8 @@ const { handleOrderAcceptance } = require('../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../interaction/buttons/completeOrder');
 const { handleOrderStatusUpdate } = require('../interaction/selectMenus/orderStatus');
 const { publishOrder, cancelOrder } = require('../interaction/buttons/orderCreation');
+const { handleVerificationRequest } = require('../interaction/buttons/requestVerification');
+const { handleAdminCompletion } = require('../interaction/buttons/adminComplete');
 const logger = require('../utils/logger');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
@@ -68,6 +70,18 @@ module.exports = {
           else if (customId.startsWith('complete_order_')) {
             const orderId = customId.replace('complete_order_', '');
             await handleOrderCompletion(interaction, orderId);
+          }
+          
+          // Handle verification request button
+          else if (customId.startsWith('request_verification_')) {
+            const orderId = customId.replace('request_verification_', '');
+            await handleVerificationRequest(interaction, orderId);
+          }
+          
+          // Handle admin completion button
+          else if (customId.startsWith('admin_complete_')) {
+            const orderId = customId.replace('admin_complete_', '');
+            await handleAdminCompletion(interaction, orderId);
           }
           
           // Confirmation d'ordre - Ajout pour le nouveau système

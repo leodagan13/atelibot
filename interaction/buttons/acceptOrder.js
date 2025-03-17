@@ -140,20 +140,22 @@ async function sendInitialMessage(channel, order, coderId) {
     )
     .setTimestamp();
   
-  // Create status selection menu
-  const statusMenu = new ActionRowBuilder()
+  // Create completion buttons row with developer completion request and admin verification
+  const statusRow = new ActionRowBuilder()
     .addComponents(
-      ButtonBuilder.from({
-        custom_id: `complete_order_${order.orderid}`,
-        label: 'Marquer comme terminé',
-        style: ButtonStyle.Success,
-        type: 2
-      })
+      new ButtonBuilder()
+        .setCustomId(`request_verification_${order.orderid}`)
+        .setLabel('Terminer le projet')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`admin_complete_${order.orderid}`)
+        .setLabel('Clôturer le projet')
+        .setStyle(ButtonStyle.Danger)
     );
   
   await channel.send({ 
     embeds: [projectEmbed],
-    components: [statusMenu]
+    components: [statusRow]
   });
   
   await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);
