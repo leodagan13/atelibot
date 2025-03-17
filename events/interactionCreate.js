@@ -282,18 +282,14 @@ async function publishModalOrder(interaction, orderId, client) {
       return;
     }
     
-    // Créer l'embed pour publication (sans le nom du client)
+    // Créer l'embed pour publication (version minimaliste)
     const publishEmbed = new EmbedBuilder()
       .setColor('#00ff00')
-      .setTitle(`Nouvelle offre #${orderId}`)
       .addFields(
-        { name: 'Client', value: 'Client confidentiel' },
         { name: 'Rémunération', value: orderSession.data.compensation },
         { name: 'Description', value: orderSession.data.description },
         { name: 'Posté par', value: `<@${interaction.user.id}>` }
-      )
-      .setFooter({ text: `Offre #${orderId}` })
-      .setTimestamp();
+      );
     
     // Bouton pour accepter l'offre
     const publishRow = new ActionRowBuilder()
@@ -318,7 +314,7 @@ async function publishModalOrder(interaction, orderId, client) {
     // Publier l'offre
     try {
       await publishChannel.send({
-        content: '**📢 Nouvelle opportunité de travail disponible!**',
+        content: '**Nouvelle opportunité de travail disponible!**',
         embeds: [publishEmbed],
         components: [publishRow]
       });
