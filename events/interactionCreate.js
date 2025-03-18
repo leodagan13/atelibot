@@ -352,11 +352,14 @@ async function publishModalOrder(interaction, orderId, client) {
     
     // Publier l'offre
     try {
-      await publishChannel.send({
-        content: '**Nouvelle opportunité de travail disponible!**',
+      const publishedMessage = await publishChannel.send({
+        content: '**📢 Nouvelle opportunité de travail disponible!**',
         embeds: [publishEmbed],
         components: [publishRow]
       });
+      
+      // Update the order with the message ID
+      await orderDB.updateMessageId(orderId, publishedMessage.id);
     } catch (publishError) {
       logger.error('Error publishing order to channel:', publishError);
       await interaction.followUp({

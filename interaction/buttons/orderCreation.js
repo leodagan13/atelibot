@@ -254,11 +254,14 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     
     // Publish the order
     try {
-      await publishChannel.send({
+      const publishedMessage = await publishChannel.send({
         content: '**📢 Nouvelle opportunité de travail disponible!**',
         embeds: [embed],
         components: [row]
       });
+      
+      // Update the order with the message ID
+      await orderDB.updateMessageId(uniqueOrderId, publishedMessage.id);
     } catch (publishError) {
       logger.error('Error publishing order to channel:', publishError);
       await channel.send('Une erreur est survenue lors de la publication de l\'offre dans le canal.');
@@ -382,11 +385,14 @@ async function publishOrder(interaction, orderSession, client) {
     
     // Publish the order
     try {
-      await publishChannel.send({
+      const publishedMessage = await publishChannel.send({
         content: '**📢 Nouvelle opportunité de travail disponible!**',
         embeds: [embed],
         components: [row]
       });
+      
+      // Update the order with the message ID
+      await orderDB.updateMessageId(uniqueOrderId, publishedMessage.id);
     } catch (publishError) {
       logger.error('Error publishing order to channel:', publishError);
       await channel.send('Une erreur est survenue lors de la publication de l\'offre dans le canal.');

@@ -33,7 +33,8 @@ const orderDB = {
         description: orderData.data.description || 'Aucune description',
         status: 'OPEN',
         createdat: new Date().toISOString(),
-        tags: orderData.data.tags || []
+        tags: orderData.data.tags || [],
+        messageid: null  // Sera mis à jour après publication
       };
       
       console.log("Données formatées pour insertion:", orderToInsert);
@@ -117,6 +118,23 @@ const orderDB = {
       return data[0];
     } catch (error) {
       logger.error(`Error updating order ${orderId} status:`, error);
+      throw error;
+    }
+  },
+  
+  // Mettre à jour l'ID du message d'une offre
+  async updateMessageId(orderId, messageId) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ messageid: messageId })
+        .eq('orderid', orderId)
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      logger.error(`Error updating message ID for order ${orderId}:`, error);
       throw error;
     }
   },

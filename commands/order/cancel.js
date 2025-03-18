@@ -65,24 +65,53 @@ module.exports = {
       // Update order status
       await orderDB.updateStatus(orderid, 'CANCELLED');
       
-      // Try to update the original message
-      try {
-        const publishChannelId = require('../../config/config').PUBLISH_ORDERS_CHANNEL_ID;
-        const publishChannel = client.channels.cache.get(publishChannelId);
-        
-        if (publishChannel && order.messageid) {
-          try {
-            const orderMessage = await publishChannel.messages.fetch(order.messageid);
-            if (orderMessage) {
-              await orderMessage.delete();
-              logger.info(`Deleted message ${order.messageid} for cancelled order ${orderid}`);
+      // Supprimer le message dans le canal de publication
+      const newStatus = 'CANCELLED';
+      if (newStatus === 'CANCELLED') {
+        try {
+          const publishChannelId = require('../../config/config').PUBLISH_ORDERS_CHANNEL_ID;
+          const publishChannel = isSlash ? interaction.guild.channels.cache.get(publishChannelId) : interaction.guild.channels.cache.get(publishChannelId);
+          
+          if (publishChannel && order.messageid) {
+            try {
+              const orderMessage = await publishChannel.messages.fetch(order.messageid);
+              if (orderMessage) {
+                await orderMessage.delete();
+                logger.info(`Deleted message ${order.messageid} for cancelled order ${orderid}`);
+              }
+            } catch (fetchError) {
+              logger.error(`Failed to fetch message ${order.messageid} for order ${orderid}:`, fetchError);
             }
-          } catch (fetchError) {
-            logger.error(`Failed to fetch message ${order.messageid} for order ${orderid}:`, fetchError);
+          } else {
+            // Méthode alternative - rechercher le message par contenu
+            try {
+              const publishChannel = client.channels.cache.get(publishChannelId);
+              if (publishChannel) {
+                // Fetch recent messages in the publish channel
+                const messages = await publishChannel.messages.fetch({ limit: 50 });
+                
+                // Find the message that contains the order ID
+                const orderMessage = messages.find(m => 
+                  m.embeds.length > 0 && 
+                  m.embeds[0].fields && 
+                  m.embeds[0].fields.some(field => field.value && field.value.includes(orderid))
+                );
+                
+                if (orderMessage) {
+                  // Delete the message
+                  await orderMessage.delete();
+                  logger.info(`Deleted message for cancelled order ${orderid} from publish channel (using content search)`);
+                } else {
+                  logger.warn(`Could not find message for cancelled order ${orderid} in publish channel`);
+                }
+              }
+            } catch (searchErr) {
+              logger.error(`Failed to search for message in publish channel for order ${orderid}:`, searchErr);
+            }
           }
+        } catch (err) {
+          logger.error(`Failed to delete message for cancelled order ${orderid}:`, err);
         }
-      } catch (err) {
-        logger.error(`Failed to delete message for cancelled order ${orderid}:`, err);
       }
       
       // If there's a private channel, notify and archive it
