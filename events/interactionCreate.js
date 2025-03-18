@@ -7,7 +7,7 @@ const { publishOrder, cancelOrder } = require('../interaction/buttons/orderCreat
 const { handleVerificationRequest } = require('../interaction/buttons/requestVerification');
 const { handleAdminCompletion } = require('../interaction/buttons/adminComplete');
 const logger = require('../utils/logger');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
 const { orderDB } = require('../database');
 const { createSidebarOrderEmbed, createNotification, getLogoAttachment } = require('../utils/modernEmbedBuilder');
@@ -51,8 +51,57 @@ module.exports = {
 
       // Handler pour les soumissions de Modal
       else if (interaction.isModalSubmit()) {
-        // Traitement spécifique pour le modal de création d'offre
-        if (interaction.customId.startsWith('create_order_modal_')) {
+        // Handle initial order details form submission
+        if (interaction.customId.startsWith('create_order_details_')) {
+          const userId = interaction.user.id;
+          
+          // Get values from the form
+          const clientName = interaction.fields.getTextInputValue('clientName');
+          const compensation = interaction.fields.getTextInputValue('compensation');
+          const description = interaction.fields.getTextInputValue('description');
+          
+          // Process tags
+          const tagsString = interaction.fields.getTextInputValue('tags') || '';
+          const tags = tagsString.split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag.length > 0);
+          
+          // Store these values in the session
+          const orderSession = client.activeOrders.get(userId);
+          if (orderSession) {
+            orderSession.data = {
+              clientName,
+              compensation,
+              description,
+              tags,
+              requiredRoles: []
+            };
+            orderSession.step = 'select_roles';
+            
+            // Acknowledge the modal submission
+            await interaction.reply({
+              content: 'Détails enregistrés! Maintenant, sélectionnez les rôles requis pour ce travail:',
+              components: [
+                new ActionRowBuilder().addComponents(
+                  new RoleSelectMenuBuilder()
+                    .setCustomId(`select_roles_${userId}`)
+                    .setPlaceholder('Sélectionner des rôles (max 5)')
+                    .setMinValues(0)
+                    .setMaxValues(5)
+                )
+              ],
+              ephemeral: true
+            });
+          } else {
+            await interaction.reply({
+              content: 'Une erreur est survenue: session de création perdue.',
+              ephemeral: true
+            });
+          }
+        }
+        
+        // Handle order confirmation modal
+        else if (interaction.customId.startsWith('create_order_modal_')) {
           await handleOrderModalSubmit(interaction, client);
         }
       }
@@ -163,6 +212,80 @@ module.exports = {
           }
         }
       }
+
+      // Handler for role selection menu
+      else if (interaction.isRoleSelectMenu()) {
+        if (interaction.customId.startsWith('select_roles_')) {
+          const userId = interaction.user.id;
+          const selectedRoleIds = interaction.values;
+          
+          // Get the order session
+          const orderSession = client.activeOrders.get(userId);
+          if (!orderSession) {
+            return interaction.update({
+              content: 'Une erreur est survenue: session de création perdue.',
+              components: [],
+              ephemeral: true
+            });
+          }
+          
+          // Convert selected role IDs to role objects with names
+          const selectedRoles = selectedRoleIds.map(roleId => {
+            const role = interaction.guild.roles.cache.get(roleId);
+            return {
+              id: roleId,
+              name: role ? role.name : 'Unknown Role'
+            };
+          });
+          
+          // Store selected roles in session
+          orderSession.data.requiredRoles = selectedRoles;
+          orderSession.step = 'preview';
+          
+          // Generate a unique ID for this order
+          const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
+          orderSession.orderId = uniqueOrderId;
+          
+          // Create order data for preview
+          const orderData = {
+            orderid: uniqueOrderId,
+            description: orderSession.data.description,
+            compensation: orderSession.data.compensation,
+            tags: orderSession.data.tags || [],
+            requiredRoles: orderSession.data.requiredRoles || [],
+            adminName: interaction.user.tag,
+            adminid: interaction.user.id,
+            clientName: orderSession.data.clientName
+          };
+          
+          // Create preview embed
+          const { embed, row } = createSidebarOrderEmbed(orderData);
+          
+          // Create confirmation buttons
+          const actionRow = new ActionRowBuilder()
+            .addComponents(
+              new ButtonBuilder()
+                .setCustomId(`confirm_modal_order_${uniqueOrderId}`)
+                .setLabel('Publier l\'offre')
+                .setStyle(ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId(`cancel_modal_order_${uniqueOrderId}`)
+                .setLabel('Annuler')
+                .setStyle(ButtonStyle.Danger)
+            );
+          
+          const logoAttachment = getLogoAttachment();
+          
+          // Show preview with confirmation buttons
+          await interaction.update({
+            content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
+            embeds: [embed],
+            components: [actionRow],
+            files: [logoAttachment],
+            ephemeral: true
+          });
+        }
+      }
     } catch (error) {
       logger.error('Error handling interaction:', error);
       
@@ -199,73 +322,78 @@ module.exports = {
  */
 async function handleOrderModalSubmit(interaction, client) {
   try {
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
     
-    // Récupérer les valeurs du formulaire
+    // Log the submission - this function is deprecated as we now use the two-step process
+    logger.warn(`Using deprecated handleOrderModalSubmit for ${interaction.user.tag} - this should be migrated`);
+    
+    // Get values from the form
     const clientName = interaction.fields.getTextInputValue('clientName');
     const compensation = interaction.fields.getTextInputValue('compensation');
     const description = interaction.fields.getTextInputValue('description');
     
-    // Récupérer et traiter les tags
+    // Process tags
     const tagsString = interaction.fields.getTextInputValue('tags') || '';
     const tags = tagsString.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0);
     
-    // Récupérer et traiter les rôles requis
+    // Process required roles - try to get from the form if it exists
     let requiredRoles = [];
     try {
-      const rolesString = interaction.fields.getTextInputValue('requiredRoles') || '';
-      
-      // Extraire les noms/mentions de rôles Discord
-      requiredRoles = rolesString.split(',')
-        .map(role => role.trim())
-        .filter(role => role.length > 0)
-        .map(role => {
-          // Si c'est une mention de rôle (@Role), nettoyer pour obtenir juste le nom
-          if (role.startsWith('@')) {
-            return role.substring(1); // Enlever le @ du début
-          }
-          return role;
-        });
-      
-      // Tenter de résoudre les IDs des rôles mentionnés
-      if (requiredRoles.length > 0) {
-        // Récupérer tous les rôles du serveur
-        const guildRoles = interaction.guild.roles.cache;
+      if (interaction.fields.getTextInputValue('requiredRoles')) {
+        const rolesString = interaction.fields.getTextInputValue('requiredRoles') || '';
         
-        // Pour chaque rôle requis, essayer de trouver le rôle Discord correspondant
-        requiredRoles = requiredRoles.map(roleName => {
-          const role = guildRoles.find(r => 
-            r.name.toLowerCase() === roleName.toLowerCase() || 
-            r.id === roleName.replace(/[<@&>]/g, '')  // Gère les mentions de rôle Discord
-          );
+        // Extract Discord role names/mentions
+        requiredRoles = rolesString.split(',')
+          .map(role => role.trim())
+          .filter(role => role.length > 0)
+          .map(role => {
+            // If it's a role mention (@Role), clean to get just the name
+            if (role.startsWith('@')) {
+              return role.substring(1); // Remove the @ from the beginning
+            }
+            return role;
+          });
+        
+        // Try to resolve mentioned role IDs
+        if (requiredRoles.length > 0) {
+          // Get all server roles
+          const guildRoles = interaction.guild.roles.cache;
           
-          if (role) {
-            // Retourner un objet avec l'ID et le nom du rôle
+          // For each required role, try to find the corresponding Discord role
+          requiredRoles = requiredRoles.map(roleName => {
+            const role = guildRoles.find(r => 
+              r.name.toLowerCase() === roleName.toLowerCase() || 
+              r.id === roleName.replace(/[<@&>]/g, '')  // Handle Discord role mentions
+            );
+            
+            if (role) {
+              // Return an object with the role ID and name
+              return {
+                id: role.id,
+                name: role.name
+              };
+            }
+            
+            // If role not found, keep the name as text
             return {
-              id: role.id,
-              name: role.name
+              id: null,
+              name: roleName
             };
-          }
-          
-          // Si le rôle n'est pas trouvé, conserver le nom comme texte
-          return {
-            id: null,
-            name: roleName
-          };
-        });
+          });
+        }
       }
     } catch (roleError) {
       logger.error('Error parsing required roles:', roleError);
-      // En cas d'erreur, continuer avec une liste vide
+      // In case of error, continue with an empty list
       requiredRoles = [];
     }
     
-    // Générer un ID unique pour cette commande
+    // Generate a unique ID for this order
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
-    // Create order data structure
+    // Create order data for preview
     const orderData = {
       orderid: uniqueOrderId,
       description: description,
@@ -277,10 +405,10 @@ async function handleOrderModalSubmit(interaction, client) {
       clientName: clientName
     };
     
-    // Create the embed and buttons
+    // Create preview embed and components
     const { embed, row } = createSidebarOrderEmbed(orderData);
     
-    // Modify row to include our specific button IDs
+    // Create confirmation buttons
     const actionRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -295,7 +423,7 @@ async function handleOrderModalSubmit(interaction, client) {
     
     const logoAttachment = getLogoAttachment();
     
-    // Stocker les données temporairement dans l'ordre actif
+    // Store data in the active order session
     client.activeOrders.set(interaction.user.id, {
       orderId: uniqueOrderId,
       data: {
@@ -307,14 +435,15 @@ async function handleOrderModalSubmit(interaction, client) {
       }
     });
     
-    // Répondre avec la prévisualisation
+    // Show preview with confirmation options
     await interaction.editReply({
+      content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
       embeds: [embed],
       components: [actionRow],
       files: [logoAttachment]
     });
     
-    logger.info(`Order form submitted by ${interaction.user.tag} - awaiting confirmation`);
+    logger.info(`Legacy order form submitted by ${interaction.user.tag} - awaiting confirmation`);
     
   } catch (error) {
     logger.error('Error handling order modal submit:', error);
@@ -343,7 +472,7 @@ async function publishModalOrder(interaction, orderId, client) {
   try {
     await interaction.deferUpdate();
     
-    // Récupérer les données de l'offre stockées temporairement
+    // Get order session data
     const orderSession = client.activeOrders.get(interaction.user.id);
     if (!orderSession) {
       return interaction.followUp({
@@ -352,7 +481,7 @@ async function publishModalOrder(interaction, orderId, client) {
       });
     }
     
-    // Create the order data structure
+    // Prepare data for database
     const orderData = {
       orderId: orderId,
       adminId: interaction.user.id,
@@ -365,7 +494,7 @@ async function publishModalOrder(interaction, orderId, client) {
       }
     };
     
-    // Store in database
+    // Save to database
     try {
       await orderDB.create(orderData);
     } catch (dbError) {
@@ -377,7 +506,7 @@ async function publishModalOrder(interaction, orderId, client) {
       return;
     }
     
-    // Create the order embed for display
+    // Create display data
     const displayOrderData = {
       orderid: orderId,
       description: orderSession.data.description,
@@ -388,11 +517,11 @@ async function publishModalOrder(interaction, orderId, client) {
       adminid: interaction.user.id
     };
     
-    // Create embed for the order
+    // Create embed and components
     const { embed, row } = createSidebarOrderEmbed(displayOrderData);
     const logoAttachment = getLogoAttachment();
     
-    // Récupérer le canal de publication
+    // Get publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
     if (!publishChannel) {
       logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
@@ -403,34 +532,36 @@ async function publishModalOrder(interaction, orderId, client) {
       return;
     }
     
-    // Publier l'offre avec pings pour les rôles
+    // Publish with role mentions
     try {
-      // Récupérer les mentions de rôles à inclure dans le message
+      // Prepare role mentions
       let rolesMentions = '';
+      
+      // Only mention roles if there are any selected
       if (orderSession.data.requiredRoles && orderSession.data.requiredRoles.length > 0) {
-        // Filtrer pour ne garder que les rôles avec un ID valide
-        const validRoles = orderSession.data.requiredRoles.filter(role => role.id);
-        
-        // Créer les mentions de rôles (max 5 rôles pour éviter le spam)
-        const maxRoles = Math.min(validRoles.length, 5);
-        for (let i = 0; i < maxRoles; i++) {
-          rolesMentions += `<@&${validRoles[i].id}> `;
-        }
+        // Each role already has an ID from the role selector
+        orderSession.data.requiredRoles.forEach(role => {
+          if (role.id) {
+            rolesMentions += `<@&${role.id}> `;
+          }
+        });
       }
       
-      // Message de notification avec mentions de rôles si disponibles
+      // Create notification message with role mentions
       const notificationMessage = rolesMentions 
         ? `${rolesMentions}\n**📢 Nouvelle opportunité de travail disponible pour vos compétences!**`
         : '**📢 Nouvelle opportunité de travail disponible!**';
       
+      // Send to channel
       const publishedMessage = await publishChannel.send({
         content: notificationMessage,
         embeds: [embed],
         components: [row],
-        files: [logoAttachment]
+        files: [logoAttachment],
+        allowedMentions: { roles: orderSession.data.requiredRoles.map(r => r.id).filter(Boolean) }
       });
       
-      // Update the order with the message ID
+      // Update order with message ID
       await orderDB.updateMessageId(orderId, publishedMessage.id);
     } catch (publishError) {
       logger.error('Error publishing order to channel:', publishError);
@@ -441,16 +572,16 @@ async function publishModalOrder(interaction, orderId, client) {
       return;
     }
     
-    // Modifier le message original
+    // Update reply message
     await interaction.editReply({
       content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
       embeds: [],
-      components: []
+      components: [],
+      files: []
     });
     
-    // Clear the active order
+    // Clean up
     client.activeOrders.delete(interaction.user.id);
-    
     logger.info(`Order ${orderId} published by ${interaction.user.tag}`);
     
   } catch (error) {

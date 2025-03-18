@@ -1,13 +1,14 @@
-// commands/order/add.js - Updated with skills/roles field
+// commands/order/add.js - With role selector component
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { 
+  ActionRowBuilder, 
+  ModalBuilder, 
+  TextInputBuilder, 
+  TextInputStyle,
+  RoleSelectMenuBuilder
+} = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
-const { orderDB } = require('../../database');
-const { EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
-const { createSidebarOrderEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
-const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -20,7 +21,7 @@ module.exports = {
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction slash command ou un message traditionnel
+      // Déterminer si c'est une interaction slash command
       const isSlash = interaction.isChatInputCommand?.();
       const userId = isSlash ? interaction.user.id : interaction.author.id;
       
@@ -31,9 +32,16 @@ module.exports = {
       }
       
       if (isSlash) {
-        // Créer un modal pour saisir toutes les informations en une fois
+        // Initialiser la session de création avec un objet vide
+        client.activeOrders.set(userId, {
+          step: 'initial',
+          data: {},
+          channelId: interaction.channelId
+        });
+        
+        // Afficher d'abord un modal pour les détails principaux
         const modal = new ModalBuilder()
-          .setCustomId(`create_order_modal_${userId}`)
+          .setCustomId(`create_order_details_${userId}`)
           .setTitle('Nouvelle offre de travail');
 
         // Ajout des champs du formulaire
@@ -66,33 +74,24 @@ module.exports = {
           .setPlaceholder('javascript, discord.js, bot, etc...')
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
-          
-        // Nouveau champ pour les compétences/rôles Discord requis
-        const skillsInput = new TextInputBuilder()
-          .setCustomId('requiredRoles')
-          .setLabel('Compétences requises (rôles Discord)')
-          .setPlaceholder('@Javascript, @React, @Designer, etc...')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short);
 
         // Organisation des champs en lignes
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
-        const skillsRow = new ActionRowBuilder().addComponents(skillsInput);
 
         // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, skillsRow);
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow);
 
         // Afficher le modal
         await interaction.showModal(modal);
       } else {
-        // Pour les commandes en préfixe, garder l'ancien système ou rediriger vers la slash command
+        // Pour les commandes en préfixe, rediriger vers la slash command
         await interaction.reply('Veuillez utiliser la slash command `/add` pour créer une nouvelle offre.');
       }
       
-      logger.info(`Order creation modal shown to ${isSlash ? interaction.user.tag : interaction.author.tag}`);
+      logger.info(`Order creation started for ${isSlash ? interaction.user.tag : interaction.author.tag}`);
       
     } catch (error) {
       logger.error('Error starting order creation:', error);
@@ -109,28 +108,3 @@ module.exports = {
     }
   }
 };
-
-async function handleOrderModalSubmit(interaction, orderData) {
-  // Existing code...
-  
-  // Replace the embed creation with:
-  const { embed, row } = createSidebarOrderEmbed({
-    orderid: orderData.orderId,
-    description: orderData.data.description,
-    compensation: orderData.data.compensation,
-    tags: orderData.data.tags,
-    adminName: interaction.user.tag
-  }, appearance.logoUrl);
-  
-  const logoAttachment = getLogoAttachment();
-  
-  // Use the returned embed and row
-  await interaction.reply({
-    embeds: [embed],
-    components: [row],
-    files: [logoAttachment],
-    ephemeral: true
-  });
-  
-  // Existing code...
-}
