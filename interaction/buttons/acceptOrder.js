@@ -10,9 +10,8 @@ const {
 } = require('discord.js');
 const { activeCoders } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
-const { createChannelEmbed } = require('../../utils/embedBuilder');
+const { createPrivateChannelEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const logger = require('../../utils/logger');
-const { createPrivateChannelEmbed } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 /**
@@ -127,13 +126,14 @@ async function sendInitialMessage(channel, order, coderId) {
     ? order.tags.map(tag => `🔴 \`${tag}\``).join('\n')
     : 'Aucun tag';
     
-  // Replace embed creation with:
+  // Create embed with order summary
   const { embed, row } = createPrivateChannelEmbed(order, coderId, appearance.logoUrl);
-  
-  // Use the returned embed and row
+  const logoAttachment = getLogoAttachment();
+
   await channel.send({
     embeds: [embed],
-    components: [row]
+    components: [row],
+    files: [logoAttachment]
   });
   
   await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);

@@ -6,7 +6,7 @@ const { orderDB } = require('../../database');
 const { EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
-const { createSidebarOrderEmbed } = require('../../utils/modernEmbedBuilder');
+const { createSidebarOrderEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 module.exports = {
@@ -102,17 +102,26 @@ module.exports = {
 };
 
 async function handleOrderModalSubmit(interaction, orderData) {
-    // ... existing code ...
-    
-    // Replace embed creation with:
-    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
-    
-    // Use the returned embed and row
-    await interaction.reply({
-        embeds: [embed],
-        components: [row],
-        ephemeral: true
-    });
-    
-    // ... existing code ...
+  // Existing code...
+  
+  // Replace the embed creation with:
+  const { embed, row } = createSidebarOrderEmbed({
+    orderid: orderData.orderId,
+    description: orderData.data.description,
+    compensation: orderData.data.compensation,
+    tags: orderData.data.tags,
+    adminName: interaction.user.tag
+  }, appearance.logoUrl);
+  
+  const logoAttachment = getLogoAttachment();
+  
+  // Use the returned embed and row
+  await interaction.reply({
+    embeds: [embed],
+    components: [row],
+    files: [logoAttachment],
+    ephemeral: true
+  });
+  
+  // Existing code...
 }

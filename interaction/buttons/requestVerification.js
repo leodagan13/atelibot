@@ -1,7 +1,7 @@
 // interaction/buttons/requestVerification.js - Gestionnaire pour les demandes de vérification
 const { orderDB } = require('../../database');
 const logger = require('../../utils/logger');
-const { createNotification } = require('../../utils/modernEmbedBuilder');
+const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 /**
@@ -47,11 +47,14 @@ async function handleVerificationRequest(interaction, orderId) {
     const embed = createNotification(
         'Verification Requested',
         `A verification has been requested for project #${order.orderid}.`,
-        'INFO',
-        appearance.logoUrl
+        'INFO'
     );
+    
+    const logoAttachment = getLogoAttachment();
+    
     await interaction.reply({
       embeds: [embed],
+      files: [logoAttachment],
       ephemeral: true
     });
     

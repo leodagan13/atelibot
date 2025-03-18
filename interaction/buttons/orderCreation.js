@@ -3,7 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const { orderDB } = require('../../database');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
-const { createSidebarOrderEmbed } = require('../../utils/modernEmbedBuilder');
+const { createSidebarOrderEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 const path = require('path');
 
@@ -66,12 +66,34 @@ async function showOrderSummary(message, orderSession, client) {
     // Générer un ID unique pour cette confirmation
     const confirmationId = Math.random().toString(36).substring(2, 10);
     
-    // Create attachment for logo
-    const logoPath = path.join(__dirname, '../../assets/', appearance.logoFilename);
-    const logoAttachment = new AttachmentBuilder(logoPath, { name: 'logo.png' });
+    // Create the order data structure for the embed
+    const orderData = {
+      orderid: `PREVIEW-${confirmationId}`,
+      description: orderSession.data.description,
+      compensation: orderSession.data.compensation,
+      tags: orderSession.data.tags || [],
+      adminName: message.author.tag
+    };
     
     // Create embed with order summary
-    const { embed, row } = createSidebarOrderEmbed(orderSession.data);
+    const { embed, row } = createSidebarOrderEmbed(orderData);
+    
+    // Modify the row to use our confirmation IDs
+    const modifiedRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId(`confirm_order_${confirmationId}`)
+          .setLabel('Publier l\'offre')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅'),
+        new ButtonBuilder()
+          .setCustomId(`cancel_order_${confirmationId}`)
+          .setLabel('Annuler')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('❌')
+      );
+    
+    const logoAttachment = getLogoAttachment();
     
     // Stocker les données de l'ordre pour la confirmation
     pendingConfirmations.set(confirmationId, {
@@ -83,9 +105,8 @@ async function showOrderSummary(message, orderSession, client) {
     // Send summary
     const summaryMessage = await message.reply({
       embeds: [embed],
-      components: [row],
-      files: [logoAttachment],
-      ephemeral: true
+      components: [modifiedRow],
+      files: [logoAttachment]
     });
     
     // Set up collector for button interaction
@@ -289,38 +310,19 @@ async function publishOrder(interaction, orderSession, client) {
     // Générer un nouvel ID unique
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
-    // Create the order data
+    // Create the order data structure for the embed
     const orderData = {
-      orderId: uniqueOrderId,
-      adminId: userId,
-      data: orderSession.data
+      orderid: uniqueOrderId,
+      description: orderSession.data.description,
+      compensation: orderSession.data.compensation,
+      tags: orderSession.data.tags || [],
+      adminName: interaction.user.tag,
+      adminid: interaction.user.id
     };
-    
-    // Log pour déboguer
-    console.log("Données de l'offre:", orderSession);
-    console.log("Données à insérer:", {
-      orderId: orderData.orderId,
-      adminId: orderData.adminId,
-      clientName: orderData.data.clientName || 'Unknown Client',
-      compensation: orderData.data.compensation,
-      description: orderData.data.description
-    });
-    
-    // Tente de créer l'ordre
-    let createdOrder;
-    try {
-      createdOrder = await orderDB.create(orderData);
-    } catch (dbError) {
-      logger.error('Error creating order:', dbError);
-      await channel.send(`Une erreur est survenue lors de la création de l'offre dans la base de données: ${dbError.message}`);
-      
-      // Clear the active order
-      client.activeOrders.delete(userId);
-      return;
-    }
     
     // Create embed for the order
     const { embed, row } = createSidebarOrderEmbed(orderData);
+    const logoAttachment = getLogoAttachment();
     
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
@@ -336,7 +338,8 @@ async function publishOrder(interaction, orderSession, client) {
       const publishedMessage = await publishChannel.send({
         content: '**📢 Nouvelle opportunité de travail disponible!**',
         embeds: [embed],
-        components: [row]
+        components: [row],
+        files: [logoAttachment]
       });
       
       // Update the order with the message ID

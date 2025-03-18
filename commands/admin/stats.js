@@ -5,7 +5,7 @@ const { orderDB, coderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
 const supabase = require('../../database/supabase');
-const { createStatsEmbed } = require('../../utils/modernEmbedBuilder');
+const { createStatsEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 module.exports = {
@@ -71,11 +71,19 @@ module.exports = {
           break;
       }
       
+      const logoAttachment = getLogoAttachment();
+      
       // Reply with embed
       if (isSlash) {
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ 
+          embeds: [embed],
+          files: [logoAttachment]
+        });
       } else {
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ 
+          embeds: [embed],
+          files: [logoAttachment]
+        });
       }
       
     } catch (error) {
@@ -122,7 +130,7 @@ async function generateGeneralStats() {
     formattedAvgTime: avgTimes.formattedAvgTime
   };
   
-  return createStatsEmbed(statsData, appearance.logoUrl);
+  return createStatsEmbed(statsData);
 }
 
 /**

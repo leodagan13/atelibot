@@ -10,7 +10,7 @@ const logger = require('../utils/logger');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
 const { orderDB } = require('../database');
-const { createNotification } = require('../utils/modernEmbedBuilder');
+const { createSidebarOrderEmbed, createNotification, getLogoAttachment } = require('../utils/modernEmbedBuilder');
 const { appearance } = require('../config/config');
 
 module.exports = {
@@ -215,28 +215,21 @@ async function handleOrderModalSubmit(interaction, client) {
     // Générer un ID unique pour cette commande
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
-    // Créer l'embed de prévisualisation
-    const previewEmbed = new EmbedBuilder()
-      .setColor('#3498db')
-      .setTitle('Prévisualisation de l\'offre')
-      .setDescription('Voici un aperçu de l\'offre. Veuillez confirmer ou annuler.')
-      .addFields(
-        { name: 'Client', value: clientName, inline: true },
-        { name: 'Rémunération', value: compensation, inline: true },
-        { name: 'ID', value: uniqueOrderId, inline: true },
-        { name: 'Description', value: description }
-      )
-      .setFooter({ text: `Proposé par ${interaction.user.tag}` })
-      .setTimestamp();
+    // Create order data structure
+    const orderData = {
+      orderid: uniqueOrderId,
+      description: description,
+      compensation: compensation,
+      tags: tags,
+      adminName: interaction.user.tag,
+      adminid: interaction.user.id,
+      clientName: clientName
+    };
     
-    // Ajouter les tags à la prévisualisation s'il y en a
-    const tagsFormatted = tags.length > 0 
-      ? tags.map(tag => `🔴 \`${tag}\``).join('\n')
-      : 'Aucun tag';
+    // Create the embed and buttons
+    const { embed, row } = createSidebarOrderEmbed(orderData);
     
-    previewEmbed.addFields({ name: 'Mandatory', value: tagsFormatted });
-    
-    // Buttons pour confirmer ou annuler
+    // Modify row to include our specific button IDs
     const actionRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -248,6 +241,8 @@ async function handleOrderModalSubmit(interaction, client) {
           .setLabel('Annuler')
           .setStyle(ButtonStyle.Danger)
       );
+    
+    const logoAttachment = getLogoAttachment();
     
     // Stocker les données temporairement dans l'ordre actif
     client.activeOrders.set(interaction.user.id, {
@@ -262,18 +257,26 @@ async function handleOrderModalSubmit(interaction, client) {
     
     // Répondre avec la prévisualisation
     await interaction.editReply({
-      embeds: [previewEmbed],
-      components: [actionRow]
+      embeds: [embed],
+      components: [actionRow],
+      files: [logoAttachment]
     });
     
     logger.info(`Order form submitted by ${interaction.user.tag} - awaiting confirmation`);
     
   } catch (error) {
     logger.error('Error handling order modal submit:', error);
+    
     if (interaction.deferred) {
-      await interaction.editReply('Une erreur est survenue lors du traitement du formulaire.');
-    } else {
-      await interaction.reply('Une erreur est survenue lors du traitement du formulaire.');
+      await interaction.editReply({
+        content: 'Une erreur est survenue lors du traitement du formulaire.',
+        ephemeral: true
+      });
+    } else if (!interaction.replied) {
+      await interaction.reply({
+        content: 'Une erreur est survenue lors du traitement du formulaire.',
+        ephemeral: true
+      });
     }
   }
 }
@@ -297,55 +300,19 @@ async function publishModalOrder(interaction, orderId, client) {
       });
     }
     
-    // Préparer les données pour l'insertion dans la BDD
+    // Create the order data structure
     const orderData = {
-      orderId,
-      adminId: interaction.user.id,
-      data: orderSession.data
+      orderid: orderId,
+      description: orderSession.data.description,
+      compensation: orderSession.data.compensation,
+      tags: orderSession.data.tags || [],
+      adminName: interaction.user.tag,
+      adminid: interaction.user.id
     };
     
-    // Créer l'offre dans la base de données
-    try {
-      await orderDB.create(orderData);
-    } catch (dbError) {
-      logger.error('Error creating order in database:', dbError);
-      await interaction.followUp({
-        content: `Une erreur est survenue lors de la création de l'offre dans la base de données: ${dbError.message}`,
-        ephemeral: true
-      });
-      
-      // Clear the active order
-      client.activeOrders.delete(interaction.user.id);
-      return;
-    }
-    
-    // Créer l'embed pour publication (version minimaliste)
-    const publishEmbed = new EmbedBuilder()
-      .setColor('#00ff00')
-      .addFields(
-        { name: 'Rémunération', value: orderSession.data.compensation },
-        { name: 'Description', value: orderSession.data.description },
-        { name: 'Posté par', value: `<@${interaction.user.id}>` }
-      );
-    
-    // Formater les tags pour l'affichage
-    const tagsFormatted = orderSession.data.tags && orderSession.data.tags.length > 0 
-      ? orderSession.data.tags.map(tag => `🔴 \`${tag}\``).join('\n')
-      : 'Aucun tag';
-    
-    // Ajouter les tags à l'embed
-    publishEmbed.addFields(
-      { name: 'Mandatory', value: tagsFormatted }
-    );
-    
-    // Bouton pour accepter l'offre
-    const publishRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`accept_order_${orderId}`)
-          .setLabel('Accepter ce travail')
-          .setStyle(ButtonStyle.Primary)
-      );
+    // Create embed for the order
+    const { embed, row } = createSidebarOrderEmbed(orderData);
+    const logoAttachment = getLogoAttachment();
     
     // Récupérer le canal de publication
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
@@ -362,8 +329,9 @@ async function publishModalOrder(interaction, orderId, client) {
     try {
       const publishedMessage = await publishChannel.send({
         content: '**📢 Nouvelle opportunité de travail disponible!**',
-        embeds: [publishEmbed],
-        components: [publishRow]
+        embeds: [embed],
+        components: [row],
+        files: [logoAttachment]
       });
       
       // Update the order with the message ID

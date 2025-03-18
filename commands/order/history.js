@@ -4,7 +4,7 @@ const { EmbedBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
-const { createOrderHistoryEmbed } = require('../../utils/modernEmbedBuilder');
+const { createOrderHistoryEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 module.exports = {
@@ -82,13 +82,21 @@ module.exports = {
       const stats = await orderDB.getOrderStats();
       
       // Create embed for history
-      const embed = createOrderHistoryEmbed(orders, filter, stats, appearance.logoUrl);
+      const embed = createOrderHistoryEmbed(orders, filter, stats);
+      const logoAttachment = getLogoAttachment();
       
       // Respond with embed
       if (isSlash) {
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({ 
+          embeds: [embed],
+          files: [logoAttachment]
+        });
       } else {
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ 
+          embeds: [embed],
+          files: [logoAttachment],
+          ephemeral: true
+        });
       }
       
     } catch (error) {

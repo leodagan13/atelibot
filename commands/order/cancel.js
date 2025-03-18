@@ -3,7 +3,7 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { adminRoles } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
-const { createNotification, updateChannelEmbedWithLogo } = require('../../utils/modernEmbedBuilder');
+const { createNotification, updateChannelEmbedWithLogo, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 module.exports = {
@@ -141,12 +141,23 @@ module.exports = {
       const embed = createNotification(
           'Project Cancelled',
           `The project #${order.orderid} has been cancelled.`,
-          'ERROR',
-          appearance.logoUrl
+          'ERROR'
       );
       
+      const logoAttachment = getLogoAttachment();
+      
       const successMessage = `L'offre #${orderid} a été annulée avec succès.`;
-      isSlash ? interaction.editReply(successMessage) : interaction.reply(successMessage);
+      isSlash ? 
+        interaction.editReply({ 
+          content: successMessage, 
+          embeds: [embed], 
+          files: [logoAttachment] 
+        }) : 
+        interaction.reply({ 
+          content: successMessage, 
+          embeds: [embed], 
+          files: [logoAttachment] 
+        });
       logger.info(`Order ${orderid} cancelled by ${userId}`);
       
     } catch (error) {

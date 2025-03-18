@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const { adminRoles, HISTORY_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
-const { createNotification } = require('../../utils/modernEmbedBuilder');
+const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 /**
@@ -65,12 +65,14 @@ async function handleAdminCompletion(interaction, orderId) {
     const embed = createNotification(
         'Admin Verification Complete',
         `The project #${order.orderid} has been verified and marked as completed by an administrator.`,
-        'SUCCESS',
-        appearance.logoUrl
+        'SUCCESS'
     );
     
+    const logoAttachment = getLogoAttachment();
+    
     await interaction.channel.send({
-      embeds: [embed]
+      embeds: [embed],
+      files: [logoAttachment]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -91,7 +93,10 @@ async function handleAdminCompletion(interaction, orderId) {
         )
         .setTimestamp();
       
-      await historyChannel.send({ embeds: [historyEmbed] });
+      await historyChannel.send({ 
+        embeds: [historyEmbed],
+        files: [logoAttachment]
+      });
     }
     
   } catch (error) {

@@ -131,7 +131,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     );
     
     if (projectMessage) {
-      await updateChannelEmbedWithLogo(projectMessage, order, newStatus, appearance.logoUrl);
+      await updateChannelEmbed(interaction, order, newStatus);
     }
     
     // Répondre à l'interaction
@@ -208,39 +208,7 @@ async function updateChannelEmbed(interaction, order, newStatus) {
   );
   
   if (projectMessage) {
-    const originalEmbed = EmbedBuilder.from(projectMessage.embeds[0]);
-    
-    // Mettre à jour la couleur selon le statut
-    switch (newStatus) {
-      case 'ASSIGNED':
-        originalEmbed.setColor('#FFA500'); // Orange
-        break;
-      case 'COMPLETED':
-        originalEmbed.setColor('#00FF00'); // Vert
-        break;
-      case 'CANCELLED':
-        originalEmbed.setColor('#FF0000'); // Rouge
-        break;
-    }
-    
-    // Ajouter ou mettre à jour le champ de statut
-    const statusField = originalEmbed.fields.find(f => f.name === 'Statut');
-    if (statusField) {
-      statusField.value = getStatusLabel(newStatus);
-    } else {
-      originalEmbed.addFields({ name: 'Statut', value: getStatusLabel(newStatus) });
-    }
-    
-    // Désactiver les composants si l'offre est terminée ou annulée
-    let components = [];
-    if (newStatus !== 'COMPLETED' && newStatus !== 'CANCELLED' && projectMessage.components.length > 0) {
-      components = projectMessage.components;
-    }
-    
-    await projectMessage.edit({
-      embeds: [originalEmbed],
-      components: components
-    });
+    await updateChannelEmbedWithLogo(projectMessage, order, newStatus, appearance.logoUrl);
   }
 }
 

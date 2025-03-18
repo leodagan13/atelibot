@@ -3,7 +3,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
-const { createNotification } = require('../../utils/modernEmbedBuilder');
+const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 
 /**
@@ -61,12 +61,14 @@ async function handleOrderCompletion(interaction, orderId) {
     const embed = createNotification(
       'Project Completed',
       `The project #${order.orderid} has been marked as completed.`,
-      'SUCCESS',
-      appearance.logoUrl
+      'SUCCESS'
     );
     
+    const logoAttachment = getLogoAttachment();
+    
     await interaction.channel.send({
-      embeds: [embed]
+      embeds: [embed],
+      files: [logoAttachment]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -88,7 +90,10 @@ async function handleOrderCompletion(interaction, orderId) {
         )
         .setTimestamp();
       
-      await historyChannel.send({ embeds: [historyEmbed] });
+      await historyChannel.send({ 
+        embeds: [historyEmbed],
+        files: [logoAttachment]
+      });
     }
     
   } catch (error) {
