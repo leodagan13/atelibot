@@ -1,7 +1,7 @@
-// events/messageCreate.js - Gestionnaire pour les messages
+// events/messageCreate.js - Updated with prefix command toggle
 
 const orderCreation = require('../interaction/buttons/orderCreation');
-const { adminRoles, CREATE_ORDERS_CHANNEL_ID, PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
+const { adminRoles, CREATE_ORDERS_CHANNEL_ID, PUBLISH_ORDERS_CHANNEL_ID, enablePrefixCommands } = require('../config/config');
 const { prefix } = require('../config/config');
 const logger = require('../utils/logger');
 const { checkPermissions } = require('../utils/permissionChecker');
@@ -15,8 +15,18 @@ module.exports = {
     // Debug log to check if message events are being received
     logger.debug(`Message received: ${message.content}`);
     
-    // Handle commands
-    if (message.content.startsWith(prefix)) {
+    // Process active order creation regardless of prefix command setting
+    const activeOrder = client.activeOrders.get(message.author.id);
+    if (activeOrder) {
+      logger.debug(`Processing order input for user: ${message.author.id}`);
+      logger.debug(`Order session: ${JSON.stringify(activeOrder)}`);
+      logger.debug(`Message in channel: ${message.channel.id}, Session channel: ${activeOrder.channelid}`);
+      orderCreation.processOrderInput(message, activeOrder, client);
+      return;
+    }
+    
+    // Only process prefix commands if they're enabled
+    if (message.content.startsWith(prefix) && enablePrefixCommands) {
       // Split into command and arguments
       const args = message.content.slice(prefix.length).trim().split(/ +/);
       const commandName = args.shift().toLowerCase();
@@ -76,15 +86,6 @@ module.exports = {
       } catch (error) {
         logger.error(`Error executing command ${commandName}:`, error);
         message.reply('Une erreur est survenue lors de l\'exécution de cette commande.');
-      }
-    } else {
-      // Process normal messages in active order creation
-      const activeOrder = client.activeOrders.get(message.author.id);
-      if (activeOrder) {
-        logger.debug(`Processing order input for user: ${message.author.id}`);
-        logger.debug(`Order session: ${JSON.stringify(activeOrder)}`);
-        logger.debug(`Message in channel: ${message.channel.id}, Session channel: ${activeOrder.channelid}`);
-        orderCreation.processOrderInput(message, activeOrder, client);
       }
     }
   }

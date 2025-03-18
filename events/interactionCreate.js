@@ -99,6 +99,7 @@ module.exports = {
           else if (customId.startsWith('confirm_order_')) {
             // Cette partie est désormais gérée par le collector dans orderCreation.js
             // On ne fait rien ici, pour éviter une double manipulation
+            
           }
           
           // Annulation d'ordre - ancienne méthode

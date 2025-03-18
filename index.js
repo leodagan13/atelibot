@@ -8,7 +8,10 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration globale
-const { activeOrderSessions, activeCoders } = require('./config/config');
+const { activeOrderSessions, activeCoders, enablePrefixCommands } = require('./config/config');
+// Log whether prefix commands are enabled
+console.log(`Prefix commands are ${enablePrefixCommands ? 'ENABLED' : 'DISABLED'}`);
+
 // Dans index.js, avant client.login()
 const { connectDatabase } = require('./database');
 

@@ -1,37 +1,59 @@
-// Cancel order command
+// commands/order/cancel.js - Fixed version with slash command support
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const { adminRoles } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
 
 module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('order_cancel')
+    .setDescription('Annuler une offre existante')
+    .addStringOption(option =>
+      option.setName('orderid')
+        .setDescription('ID de l\'offre à annuler')
+        .setRequired(true)),
+  
   name: 'order_cancel',
   description: 'Cancel an existing job order',
   permissions: adminRoles,
   
-  async execute(message, args, client) {
-    // Check if order ID was provided
-    if (!args.length) {
-      return message.reply('Veuillez fournir l\'ID de l\'offre à annuler. Exemple: `$order cancel 1234`');
-    }
-    
-    const orderid = args[0];
-    
+  async execute(interaction, args, client) {
     try {
+      // Determine if this is a slash command or prefix command
+      const isSlash = interaction.isChatInputCommand?.();
+      const userId = isSlash ? interaction.user.id : interaction.author.id;
+      
+      // Get order ID from args or slash command options
+      let orderid;
+      
+      if (isSlash) {
+        await interaction.deferReply();
+        orderid = interaction.options.getString('orderid');
+      } else {
+        // For prefix commands
+        if (!args.length) {
+          return interaction.reply('Veuillez fournir l\'ID de l\'offre à annuler. Exemple: `$order cancel 1234`');
+        }
+        orderid = args[0];
+      }
+      
       // Find the order in database
       const order = await orderDB.findById(orderid);
       
       if (!order) {
-        return message.reply(`Aucune offre trouvée avec l'ID ${orderid}.`);
+        const replyContent = `Aucune offre trouvée avec l'ID ${orderid}.`;
+        return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
       // Check if user is the admin who created the order
-      if (order.adminid !== message.author.id) {
-        const isAdmin = message.member.roles.cache.some(role => 
-          adminRoles.includes(role.name)
-        );
+      if (order.adminid !== userId) {
+        const isAdmin = isSlash 
+          ? interaction.member.roles.cache.some(role => adminRoles.includes(role.name))
+          : interaction.member.roles.cache.some(role => adminRoles.includes(role.name));
         
         if (!isAdmin) {
-          return message.reply('Vous ne pouvez annuler que les offres que vous avez créées.');
+          const replyContent = 'Vous ne pouvez annuler que les offres que vous avez créées.';
+          return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
         }
       }
       
@@ -45,7 +67,8 @@ module.exports = {
       
       // Try to update the original message
       try {
-        const channel = message.guild.channels.cache.get(order.channelid);
+        const guild = isSlash ? interaction.guild : interaction.guild;
+        const channel = guild.channels.cache.get(order.channelid);
         if (channel) {
           const orderMessage = await channel.messages.fetch(order.messageid);
           if (orderMessage) {
@@ -67,10 +90,11 @@ module.exports = {
       // If there's a private channel, notify and archive it
       if (order.privatechannelid) {
         try {
-          const privateChannel = message.guild.channels.cache.get(order.privatechannelid);
+          const guild = isSlash ? interaction.guild : interaction.guild;
+          const privateChannel = guild.channels.cache.get(order.privatechannelid);
           if (privateChannel) {
             await privateChannel.send({
-              content: `⚠️ **Cette offre a été annulée par <@${message.author.id}>.**`
+              content: `⚠️ **Cette offre a été annulée par <@${userId}>.**`
             });
             
             // Archive channel if possible
@@ -85,12 +109,23 @@ module.exports = {
         }
       }
       
-      message.reply(`L'offre #${orderid} a été annulée avec succès.`);
-      logger.info(`Order ${orderid} cancelled by ${message.author.id}`);
+      const successMessage = `L'offre #${orderid} a été annulée avec succès.`;
+      isSlash ? interaction.editReply(successMessage) : interaction.reply(successMessage);
+      logger.info(`Order ${orderid} cancelled by ${userId}`);
       
     } catch (error) {
-      logger.error(`Error cancelling order ${orderid}:`, error);
-      message.reply('Une erreur est survenue lors de l\'annulation de l\'offre.');
+      logger.error(`Error cancelling order:`, error);
+      const errorMessage = 'Une erreur est survenue lors de l\'annulation de l\'offre.';
+      
+      if (interaction.isChatInputCommand?.()) {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply(errorMessage);
+        } else {
+          await interaction.reply(errorMessage);
+        }
+      } else {
+        await interaction.reply(errorMessage);
+      }
     }
   }
 };

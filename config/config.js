@@ -22,12 +22,16 @@ const guildid = '1350455133309505558';   // lowercase to match database
 // Roles that can create orders
 const adminRoles = ['Admin', 'Moderator', 'Opportunity Curator'];
 
+// Check if prefix commands are enabled
+const enablePrefixCommands = process.env.ENABLE_PREFIX_COMMANDS?.toLowerCase() === 'true';
+
 // Bot configuration
 module.exports = {
     activeOrderSessions,
     activeCoders,
     adminRoles,
     prefix: '/',
+    enablePrefixCommands,
     maxActiveJobs: 1,
     channels: {
         create: CREATE_ORDERS_CHANNEL_ID,
