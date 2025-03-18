@@ -3,6 +3,8 @@ const { EmbedBuilder } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const { adminRoles, HISTORY_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
+const { createNotification } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 /**
  * Gère la clôture d'un projet par un administrateur
@@ -60,9 +62,15 @@ async function handleAdminCompletion(interaction, orderId) {
     });
     
     // Envoyer un message de confirmation dans le canal
+    const embed = createNotification(
+        'Admin Verification Complete',
+        `The project #${order.orderid} has been verified and marked as completed by an administrator.`,
+        'SUCCESS',
+        appearance.logoUrl
+    );
+    
     await interaction.channel.send({
-      content: `🚫 **Projet clôturé!** 🚫\n\nLe projet #${orderId} a été officiellement clôturé par <@${userId}>.\nMerci pour votre travail!`,
-      embeds: [createCompletionEmbed(order, userId)]
+      embeds: [embed]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -120,25 +128,6 @@ async function updateOriginalMessage(interaction, order) {
       components: []
     });
   }
-}
-
-/**
- * Crée un embed pour la confirmation de complétion
- * @param {Object} order - Données de l'offre
- * @param {String} completedBy - ID de l'utilisateur ayant complété l'offre
- * @returns {EmbedBuilder} - Embed de complétion
- */
-function createCompletionEmbed(order, completedBy) {
-  return new EmbedBuilder()
-    .setColor('#FF0000')
-    .setTitle('Projet clôturé')
-    .setDescription(`Le projet a été vérifié et clôturé officiellement.`)
-    .addFields(
-      { name: 'ID du projet', value: order.orderid },
-      { name: 'Clôturé par', value: `<@${completedBy}>` },
-      { name: 'Date de clôture', value: new Date().toLocaleDateString() }
-    )
-    .setTimestamp();
 }
 
 /**

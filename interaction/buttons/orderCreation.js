@@ -3,6 +3,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { orderDB } = require('../../database');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
+const { createSidebarOrderEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 // Stockage temporaire des commandes en cours de confirmation
 const pendingConfirmations = new Map();
@@ -64,29 +66,7 @@ async function showOrderSummary(message, orderSession, client) {
     const confirmationId = Math.random().toString(36).substring(2, 10);
     
     // Create embed with order summary
-    const embed = new EmbedBuilder()
-      .setColor('#3498db')
-      .setTitle('Résumé de l\'offre')
-      .addFields(
-        { name: 'Client', value: orderSession.data.clientName },
-        { name: 'Rémunération', value: orderSession.data.compensation },
-        { name: 'Description', value: orderSession.data.description }
-      )
-      .setFooter({ text: `Offre #${orderSession.orderId}` })
-      .setTimestamp();
-    
-    // Create confirmation buttons
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`confirm_order_${confirmationId}`)
-          .setLabel('Confirmer')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`cancel_order_${confirmationId}`)
-          .setLabel('Annuler')
-          .setStyle(ButtonStyle.Danger)
-      );
+    const { embed, row } = createSidebarOrderEmbed(orderSession.data, appearance.logoUrl);
     
     // Stocker les données de l'ordre pour la confirmation
     pendingConfirmations.set(confirmationId, {
@@ -97,9 +77,9 @@ async function showOrderSummary(message, orderSession, client) {
     
     // Send summary
     const summaryMessage = await message.reply({
-      content: 'Voici le résumé de l\'offre. Veuillez confirmer ou annuler:',
       embeds: [embed],
-      components: [row]
+      components: [row],
+      ephemeral: true
     });
     
     // Set up collector for button interaction
@@ -222,26 +202,7 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     }
     
     // Create embed for the order
-    const embed = new EmbedBuilder()
-      .setColor('#00ff00')
-      .setTitle(`Nouvelle offre #${uniqueOrderId}`)
-      .addFields(
-        { name: 'Client', value: 'Client confidentiel' },
-        { name: 'Rémunération', value: orderSession.data.compensation },
-        { name: 'Description', value: orderSession.data.description },
-        { name: 'Posté par', value: `<@${userId}>` }
-      )
-      .setFooter({ text: `Offre #${uniqueOrderId}` })
-      .setTimestamp();
-    
-    // Add button to accept the order
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`accept_order_${uniqueOrderId}`)
-          .setLabel('Accepter ce travail')
-          .setStyle(ButtonStyle.Primary)
-      );
+    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
     
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
@@ -353,26 +314,7 @@ async function publishOrder(interaction, orderSession, client) {
     }
     
     // Create embed for the order
-    const embed = new EmbedBuilder()
-      .setColor('#00ff00')
-      .setTitle(`Nouvelle offre #${uniqueOrderId}`)
-      .addFields(
-        { name: 'Client', value: orderSession.data.clientName },
-        { name: 'Rémunération', value: orderSession.data.compensation },
-        { name: 'Description', value: orderSession.data.description },
-        { name: 'Posté par', value: `<@${userId}>` }
-      )
-      .setFooter({ text: `Offre #${uniqueOrderId}` })
-      .setTimestamp();
-    
-    // Add button to accept the order
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`accept_order_${uniqueOrderId}`)
-          .setLabel('Accepter ce travail')
-          .setStyle(ButtonStyle.Primary)
-      );
+    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
     
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);

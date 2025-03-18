@@ -3,6 +3,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
+const { createNotification } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 /**
  * Gère la complétion d'une offre par un codeur ou un administrateur
@@ -56,9 +58,15 @@ async function handleOrderCompletion(interaction, orderId) {
     });
     
     // Envoyer un message de confirmation dans le canal
+    const embed = createNotification(
+      'Project Completed',
+      `The project #${order.orderid} has been marked as completed.`,
+      'SUCCESS',
+      appearance.logoUrl
+    );
+    
     await interaction.channel.send({
-      content: `🎉 **Projet terminé!** 🎉\n\nLe projet #${orderId} a été marqué comme terminé par <@${userId}>.\nMerci pour votre travail!`,
-      embeds: [createCompletionEmbed(order, userId)]
+      embeds: [embed]
     });
     
     // Envoyer un message dans le canal d'historique
@@ -129,25 +137,6 @@ async function updateOriginalMessage(interaction, order) {
       components: components
     });
   }
-}
-
-/**
- * Crée un embed pour la confirmation de complétion
- * @param {Object} order - Données de l'offre
- * @param {String} completedBy - ID de l'utilisateur ayant complété l'offre
- * @returns {EmbedBuilder} - Embed de complétion
- */
-function createCompletionEmbed(order, completedBy) {
-  return new EmbedBuilder()
-    .setColor('#00FF00')
-    .setTitle('Projet terminé')
-    .setDescription(`Le projet a été terminé avec succès.`)
-    .addFields(
-      { name: 'ID du projet', value: order.orderid },
-      { name: 'Terminé par', value: `<@${completedBy}>` },
-      { name: 'Date de complétion', value: new Date().toLocaleDateString() }
-    )
-    .setTimestamp();
 }
 
 /**

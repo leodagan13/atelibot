@@ -3,6 +3,8 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { adminRoles } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
+const { createNotification, updateChannelEmbedWithLogo } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -135,6 +137,13 @@ module.exports = {
           logger.error(`Failed to notify private channel for order ${orderid}:`, channelErr);
         }
       }
+      
+      const embed = createNotification(
+          'Project Cancelled',
+          `The project #${order.orderid} has been cancelled.`,
+          'ERROR',
+          appearance.logoUrl
+      );
       
       const successMessage = `L'offre #${orderid} a été annulée avec succès.`;
       isSlash ? interaction.editReply(successMessage) : interaction.reply(successMessage);

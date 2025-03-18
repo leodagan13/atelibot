@@ -3,6 +3,8 @@
 const { EmbedBuilder } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
+const { updateChannelEmbedWithLogo } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 /**
  * Gère la mise à jour du statut d'une offre
@@ -121,7 +123,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     await orderDB.updateStatus(orderId, newStatus);
     
     // Mettre à jour le message avec l'embed
-    await updateChannelEmbed(interaction, order, newStatus);
+    await updateChannelEmbedWithLogo(interaction, order, newStatus, appearance.logoUrl);
     
     // Répondre à l'interaction
     await interaction.reply({

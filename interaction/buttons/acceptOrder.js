@@ -12,6 +12,8 @@ const { activeCoders } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
 const { createChannelEmbed } = require('../../utils/embedBuilder');
 const logger = require('../../utils/logger');
+const { createPrivateChannelEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 /**
  * Gère l'acceptation d'une offre par un codeur
@@ -125,37 +127,13 @@ async function sendInitialMessage(channel, order, coderId) {
     ? order.tags.map(tag => `🔴 \`${tag}\``).join('\n')
     : 'Aucun tag';
     
-  // Create project embed
-  const projectEmbed = new EmbedBuilder()
-    .setColor('#00ff00')
-    .setTitle(`Projet #${order.orderid}`)
-    .setDescription('Ce canal a été créé pour la communication entre l\'administrateur, le codeur et le client.')
-    .addFields(
-      { name: 'Client', value: 'Client confidentiel' },
-      { name: 'Rémunération', value: order.compensation },
-      { name: 'Description', value: order.description },
-      { name: 'Codeur', value: `<@${coderId}>` },
-      { name: 'Administrateur', value: `<@${order.adminid}>` },
-      { name: 'Mandatory', value: tagsFormatted }
-    )
-    .setTimestamp();
+  // Replace embed creation with:
+  const { embed, row } = createPrivateChannelEmbed(order, coderId, appearance.logoUrl);
   
-  // Create completion buttons row with developer completion request and admin verification
-  const statusRow = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`request_verification_${order.orderid}`)
-        .setLabel('Terminer le projet')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(`admin_complete_${order.orderid}`)
-        .setLabel('Clôturer le projet')
-        .setStyle(ButtonStyle.Danger)
-    );
-  
-  await channel.send({ 
-    embeds: [projectEmbed],
-    components: [statusRow]
+  // Use the returned embed and row
+  await channel.send({
+    embeds: [embed],
+    components: [row]
   });
   
   await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);

@@ -5,6 +5,8 @@ const { orderDB, coderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
 const supabase = require('../../database/supabase');
+const { createStatsEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -111,20 +113,16 @@ async function generateGeneralStats() {
     Math.round((stats.cancelled / stats.total) * 100) : 0;
   
   // Create embed
-  const embed = new EmbedBuilder()
-    .setColor('#4B0082')
-    .setTitle('Statistiques Générales')
-    .addFields(
-      { name: '📊 Total des commandes', value: `${stats.total}`, inline: true },
-      { name: '✅ Commandes terminées', value: `${stats.completed} (${completionRate}%)`, inline: true },
-      { name: '❌ Commandes annulées', value: `${stats.cancelled} (${cancellationRate}%)`, inline: true },
-      { name: '🔄 Commandes actives', value: `${stats.active}`, inline: true },
-      { name: '⏱️ Temps moyen de complétion', value: avgTimes.formattedAvgTime, inline: true }
-    )
-    .setFooter({ text: 'Statistiques mises à jour' })
-    .setTimestamp();
+  const statsData = {
+    total: stats.total,
+    completed: stats.completed,
+    cancelled: stats.cancelled,
+    active: stats.active,
+    avgTimeMs: avgTimes.avgTimeMs,
+    formattedAvgTime: avgTimes.formattedAvgTime
+  };
   
-  return embed;
+  return createStatsEmbed(statsData, appearance.logoUrl);
 }
 
 /**

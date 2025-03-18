@@ -45,5 +45,11 @@ module.exports = {
     clientid,
     guildid,
     clientId: clientid,  // For JavaScript code using camelCase
-    guildId: guildid     // For JavaScript code using camelCase
+    guildId: guildid,     // For JavaScript code using camelCase
+    // Bot appearance
+    appearance: {
+        logoUrl: 'https://your-domain.com/path/to/your-logo.png',
+        accentColor: '#ff3366', // Red sidebar accent
+        secondaryColor: '#5865F2' // For secondary elements
+    }
 };

@@ -10,6 +10,8 @@ const logger = require('../utils/logger');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
 const { orderDB } = require('../database');
+const { createNotification } = require('../utils/modernEmbedBuilder');
+const { appearance } = require('../config/config');
 
 module.exports = {
   name: 'interactionCreate',
@@ -167,8 +169,14 @@ module.exports = {
       // If the interaction hasn't been replied to already, send an error message
       if (!interaction.replied && !interaction.deferred) {
         try {
+          const embed = createNotification(
+            'Error Occurred',
+            'An error occurred while processing your request.',
+            'ERROR',
+            appearance.logoUrl
+          );
           await interaction.reply({
-            content: 'Une erreur est survenue lors du traitement de cette interaction.',
+            embeds: [embed],
             ephemeral: true
           });
         } catch (replyError) {

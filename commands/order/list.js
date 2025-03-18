@@ -4,6 +4,8 @@ const { EmbedBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
+const { createOrderListEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -67,38 +69,13 @@ module.exports = {
       }
       
       // Create embed for orders list
-      const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle(`Liste des offres - ${status}`)
-        .setDescription(`${orders.length} offre(s) trouvée(s)`)
-        .setTimestamp();
-      
-      // Add each order to the embed
-      orders.forEach(order => {
-        let statusEmoji;
-        switch (order.status) {
-          case 'OPEN': statusEmoji = '🟢'; break;
-          case 'ASSIGNED': statusEmoji = '🟠'; break;
-          case 'COMPLETED': statusEmoji = '✅'; break;
-          case 'CANCELLED': statusEmoji = '❌'; break;
-          default: statusEmoji = '⚪'; break;
-        }
-        
-        embed.addFields({
-          name: `${statusEmoji} Offre #${order.orderid}`,
-          value: `**Client:** Client confidentiel\n` +
-                 `**Rémunération:** ${order.compensation}\n` +
-                 `**Posté par:** <@${order.adminid}>\n` +
-                 `**Créé le:** ${new Date(order.createdAt).toLocaleDateString()}\n` +
-                 `${order.assignedTo ? `**Assigné à:** <@${order.assignedTo}>` : ''}`
-        });
-      });
+      const embed = createOrderListEmbed(orders, status, appearance.logoUrl);
       
       // Respond with embed
       if (isSlash) {
         await interaction.editReply({ embeds: [embed] });
       } else {
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       }
       
     } catch (error) {

@@ -4,6 +4,8 @@ const { EmbedBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
+const { createOrderHistoryEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -76,48 +78,17 @@ module.exports = {
         return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
-      // Create embed for history
-      const embed = new EmbedBuilder()
-        .setColor('#8884ff')
-        .setTitle(`Historique des commandes ${filter !== 'ALL' ? `- ${filter}` : ''}`)
-        .setDescription(`Affichage des ${orders.length} dernières commandes.`)
-        .setTimestamp();
-      
       // Get global stats
       const stats = await orderDB.getOrderStats();
       
-      // Add footer with stats
-      embed.setFooter({ 
-        text: `Total: ${stats.total} | Terminées: ${stats.completed} | Annulées: ${stats.cancelled} | Actives: ${stats.active}` 
-      });
-      
-      // Add each order to the embed
-      orders.forEach(order => {
-        const completionDate = order.completedAt 
-          ? new Date(order.completedAt).toLocaleDateString() 
-          : 'Non spécifiée';
-          
-        let statusEmoji;
-        switch (order.status) {
-          case 'COMPLETED': statusEmoji = '✅'; break;
-          case 'CANCELLED': statusEmoji = '❌'; break;
-          default: statusEmoji = '⚪'; break;
-        }
-        
-        embed.addFields({
-          name: `${statusEmoji} Commande #${order.orderid} - Client confidentiel`,
-          value: `**Statut:** ${order.status}\n` +
-                 `**Rémunération:** ${order.compensation}\n` +
-                 `**Codeur:** ${order.assignedTo ? `<@${order.assignedTo}>` : 'Non assigné'}\n` +
-                 `**Terminée le:** ${completionDate}`
-        });
-      });
+      // Create embed for history
+      const embed = createOrderHistoryEmbed(orders, filter, stats, appearance.logoUrl);
       
       // Respond with embed
       if (isSlash) {
         await interaction.editReply({ embeds: [embed] });
       } else {
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
       }
       
     } catch (error) {

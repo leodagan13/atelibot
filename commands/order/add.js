@@ -6,6 +6,8 @@ const { orderDB } = require('../../database');
 const { EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
+const { createSidebarOrderEmbed } = require('../../utils/modernEmbedBuilder');
+const { appearance } = require('../../config/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -98,3 +100,19 @@ module.exports = {
     }
   }
 };
+
+async function handleOrderModalSubmit(interaction, orderData) {
+    // ... existing code ...
+    
+    // Replace embed creation with:
+    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
+    
+    // Use the returned embed and row
+    await interaction.reply({
+        embeds: [embed],
+        components: [row],
+        ephemeral: true
+    });
+    
+    // ... existing code ...
+}
