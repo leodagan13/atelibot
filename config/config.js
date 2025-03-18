@@ -48,7 +48,7 @@ module.exports = {
     guildId: guildid,     // For JavaScript code using camelCase
     // Bot appearance
     appearance: {
-        logoUrl: 'https://your-domain.com/path/to/your-logo.png',
+        logoFilename: 'logo.png', // Nom du fichier dans le dossier assets
         accentColor: '#ff3366', // Red sidebar accent
         secondaryColor: '#5865F2' // For secondary elements
     }

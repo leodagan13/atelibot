@@ -1,5 +1,7 @@
 // utils/modernEmbedBuilder.js
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const config = require('../config/config');
+const path = require('path');
 
 /**
  * Colors for different embed types and statuses
@@ -69,15 +71,14 @@ const FIELD_ICONS = {
 /**
  * Create a modern order card embed with sidebar style
  * @param {Object} order - Order data
- * @param {String} logoUrl - URL to company logo
  * @returns {Object} - Contains embed and action row
  */
-function createSidebarOrderEmbed(order, logoUrl) {
+function createSidebarOrderEmbed(order) {
   const embed = new EmbedBuilder()
     .setColor('#ff3366') // Red sidebar accent
     .setTitle(`New Project Opportunity`)
     .setDescription(`Here's a new project that matches your skills. Review the details and click the button below to accept this job.`)
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .addFields(
       { name: `${FIELD_ICONS.description} Project Description`, value: order.description },
       { name: '\u200B', value: '――――――――――――――――――――' }, // Divider
@@ -87,7 +88,7 @@ function createSidebarOrderEmbed(order, logoUrl) {
     )
     .setFooter({ 
       text: `Posted by ${order.adminName || 'Admin'} • ${new Date().toLocaleDateString()}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     })
     .setTimestamp();
     
@@ -122,7 +123,7 @@ function createPrivateChannelEmbed(order, developerID, logoUrl) {
     .setColor('#ff3366') // Red sidebar accent
     .setTitle(`Project Channel`)
     .setDescription(`This channel has been created for project collaboration between the administrator and the developer.`)
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .addFields(
       { name: `${FIELD_ICONS.description} Project Description`, value: order.description },
       { name: '\u200B', value: '――――――――――――――――――――' }, // Divider
@@ -136,7 +137,7 @@ function createPrivateChannelEmbed(order, developerID, logoUrl) {
     )
     .setFooter({ 
       text: `Project #${order.orderid}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     });
     
   // Add skills/tags if available
@@ -175,10 +176,10 @@ function createOrderListEmbed(orders, status, logoUrl) {
     .setColor('#ff3366') // Red sidebar accent
     .setTitle(`Project List - ${status}`)
     .setDescription(`Found ${orders.length} project(s) with status "${status}".`)
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .setFooter({ 
       text: `Projects as of ${new Date().toLocaleDateString()}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     })
     .setTimestamp();
     
@@ -213,10 +214,10 @@ function createOrderHistoryEmbed(orders, filter, stats, logoUrl) {
     .setColor('#ff3366') // Red sidebar accent
     .setTitle(`Project History ${filter !== 'ALL' ? `- ${filter}` : ''}`)
     .setDescription(`Showing the ${orders.length} most recent projects.`)
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .setFooter({ 
       text: `Total: ${stats.total} | Completed: ${stats.completed} | Cancelled: ${stats.cancelled} | Active: ${stats.active}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     })
     .setTimestamp();
     
@@ -259,7 +260,7 @@ function createStatsEmbed(stats, logoUrl) {
   const embed = new EmbedBuilder()
     .setColor('#ff3366') // Red sidebar accent
     .setTitle('📊 Project Statistics')
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .addFields(
       { name: '――――――― Overview ―――――――', value: '\u200B' },
       { name: '📈 Total Projects', value: `${stats.total}`, inline: true },
@@ -271,7 +272,7 @@ function createStatsEmbed(stats, logoUrl) {
     )
     .setFooter({ 
       text: `Statistics as of ${new Date().toLocaleDateString()}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     })
     .setTimestamp();
   
@@ -308,10 +309,10 @@ function createNotification(title, message, type = 'info', logoUrl) {
     .setColor('#ff3366') // Red sidebar accent, can also use COLORS.getColor(typeUpper)
     .setTitle(`${icon} ${title}`)
     .setDescription(message)
-    .setThumbnail(logoUrl) // Company logo
+    .setThumbnail('attachment://logo.png') // Reference to local logo file
     .setFooter({ 
       text: `Notification • ${new Date().toLocaleDateString()}`,
-      iconURL: logoUrl
+      iconURL: 'attachment://logo.png'
     })
     .setTimestamp();
 }
@@ -330,7 +331,7 @@ async function updateChannelEmbedWithLogo(projectMessage, order, newStatus, logo
   originalEmbed.setColor('#ff3366'); // Keep consistent sidebar color
   
   // Keep the logo
-  originalEmbed.setThumbnail(logoUrl);
+  originalEmbed.setThumbnail('attachment://logo.png');
   
   // Update the status field
   const statusField = originalEmbed.data.fields.find(f => f.name.includes('Status'));
@@ -393,6 +394,15 @@ function calculateDuration(startDate, endDate) {
   }
 }
 
+/**
+ * Get logo attachment for embeds
+ * @returns {AttachmentBuilder} - Discord.js attachment for logo
+ */
+function getLogoAttachment() {
+  const logoPath = path.join(__dirname, '../assets/', config.appearance.logoFilename);
+  return new AttachmentBuilder(logoPath, { name: 'logo.png' });
+}
+
 module.exports = {
   COLORS,
   STATUS_BADGES,
@@ -405,5 +415,6 @@ module.exports = {
   createNotification,
   updateChannelEmbedWithLogo,
   createProgressBar,
-  calculateDuration
+  calculateDuration,
+  getLogoAttachment
 };

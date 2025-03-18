@@ -1,10 +1,11 @@
 // interaction/buttons/orderCreation.js - Handle the order creation flow
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
 const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
 const { createSidebarOrderEmbed } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
+const path = require('path');
 
 // Stockage temporaire des commandes en cours de confirmation
 const pendingConfirmations = new Map();
@@ -65,8 +66,12 @@ async function showOrderSummary(message, orderSession, client) {
     // Générer un ID unique pour cette confirmation
     const confirmationId = Math.random().toString(36).substring(2, 10);
     
+    // Create attachment for logo
+    const logoPath = path.join(__dirname, '../../assets/', appearance.logoFilename);
+    const logoAttachment = new AttachmentBuilder(logoPath, { name: 'logo.png' });
+    
     // Create embed with order summary
-    const { embed, row } = createSidebarOrderEmbed(orderSession.data, appearance.logoUrl);
+    const { embed, row } = createSidebarOrderEmbed(orderSession.data);
     
     // Stocker les données de l'ordre pour la confirmation
     pendingConfirmations.set(confirmationId, {
@@ -79,6 +84,7 @@ async function showOrderSummary(message, orderSession, client) {
     const summaryMessage = await message.reply({
       embeds: [embed],
       components: [row],
+      files: [logoAttachment],
       ephemeral: true
     });
     
@@ -202,7 +208,7 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     }
     
     // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
+    const { embed, row } = createSidebarOrderEmbed(orderData);
     
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
@@ -314,7 +320,7 @@ async function publishOrder(interaction, orderSession, client) {
     }
     
     // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(orderData, appearance.logoUrl);
+    const { embed, row } = createSidebarOrderEmbed(orderData);
     
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);

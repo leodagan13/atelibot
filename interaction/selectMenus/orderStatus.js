@@ -123,7 +123,16 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     await orderDB.updateStatus(orderId, newStatus);
     
     // Mettre à jour le message avec l'embed
-    await updateChannelEmbedWithLogo(interaction, order, newStatus, appearance.logoUrl);
+    const messages = await interaction.channel.messages.fetch({ limit: 10 });
+    const projectMessage = messages.find(m => 
+      m.embeds.length > 0 && 
+      m.embeds[0].title && 
+      m.embeds[0].title.includes(`Projet #${order.orderid}`)
+    );
+    
+    if (projectMessage) {
+      await updateChannelEmbedWithLogo(projectMessage, order, newStatus, appearance.logoUrl);
+    }
     
     // Répondre à l'interaction
     await interaction.reply({
