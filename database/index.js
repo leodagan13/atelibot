@@ -24,6 +24,12 @@ const orderDB = {
     try {
       console.log("Création d'ordre avec données:", orderData);
       
+      // Process required roles if present
+      let requiredRoles = [];
+      if (orderData.data.requiredRoles && Array.isArray(orderData.data.requiredRoles)) {
+        requiredRoles = orderData.data.requiredRoles;
+      }
+      
       // Utiliser des noms de colonnes corrects selon les screenshots
       const orderToInsert = {
         orderid: orderData.orderId,
@@ -34,6 +40,7 @@ const orderDB = {
         status: 'OPEN',
         createdat: new Date().toISOString(),
         tags: orderData.data.tags || [],
+        required_roles: requiredRoles, // Add required roles
         messageid: null  // Sera mis à jour après publication
       };
       
@@ -192,6 +199,20 @@ const orderDB = {
       };
     } catch (error) {
       logger.error('Error fetching order statistics:', error);
+      throw error;
+    }
+  },
+
+  // Find orders by required role
+  async findByRequiredRole(roleId) {
+    try {
+      // Use the custom SQL function we created
+      const { data, error } = await supabase.rpc('search_orders_by_role', { role_id: roleId });
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error(`Error finding orders with required role ${roleId}:`, error);
       throw error;
     }
   }

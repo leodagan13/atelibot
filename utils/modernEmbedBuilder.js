@@ -135,7 +135,23 @@ function createSidebarOrderEmbed(order) {
   // Add skills/tags if available
   if (order.tags && order.tags.length > 0) {
     const formattedTags = order.tags.map(tag => `\`${tag}\``).join(' ');
-    embed.addFields({ name: `${FIELD_ICONS.skills} Skills Needed`, value: formattedTags });
+    embed.addFields({ name: `${FIELD_ICONS.tags} Technologies Needed`, value: formattedTags });
+  }
+  
+  // Add required roles/skills if available
+  if (order.requiredRoles && order.requiredRoles.length > 0) {
+    let rolesList = '';
+    
+    order.requiredRoles.forEach(role => {
+      // Si le rôle a un ID, l'afficher comme une mention, sinon en texte
+      if (role.id) {
+        rolesList += `<@&${role.id}> `;
+      } else {
+        rolesList += `\`${role.name}\` `;
+      }
+    });
+    
+    embed.addFields({ name: `${FIELD_ICONS.skills} Skills/Roles Required`, value: rolesList || 'No specific roles required' });
   }
   
   // Create button row for accepting the order

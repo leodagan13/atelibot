@@ -1,4 +1,4 @@
-// commands/order/add.js - Version mise à jour avec formulaire interactif
+// commands/order/add.js - Updated with skills/roles field
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
@@ -66,15 +66,24 @@ module.exports = {
           .setPlaceholder('javascript, discord.js, bot, etc...')
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
+          
+        // Nouveau champ pour les compétences/rôles Discord requis
+        const skillsInput = new TextInputBuilder()
+          .setCustomId('requiredRoles')
+          .setLabel('Compétences requises (rôles Discord)')
+          .setPlaceholder('@Javascript, @React, @Designer, etc...')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short);
 
         // Organisation des champs en lignes
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
+        const skillsRow = new ActionRowBuilder().addComponents(skillsInput);
 
         // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow);
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, skillsRow);
 
         // Afficher le modal
         await interaction.showModal(modal);

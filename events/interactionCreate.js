@@ -212,6 +212,56 @@ async function handleOrderModalSubmit(interaction, client) {
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0);
     
+    // Récupérer et traiter les rôles requis
+    let requiredRoles = [];
+    try {
+      const rolesString = interaction.fields.getTextInputValue('requiredRoles') || '';
+      
+      // Extraire les noms/mentions de rôles Discord
+      requiredRoles = rolesString.split(',')
+        .map(role => role.trim())
+        .filter(role => role.length > 0)
+        .map(role => {
+          // Si c'est une mention de rôle (@Role), nettoyer pour obtenir juste le nom
+          if (role.startsWith('@')) {
+            return role.substring(1); // Enlever le @ du début
+          }
+          return role;
+        });
+      
+      // Tenter de résoudre les IDs des rôles mentionnés
+      if (requiredRoles.length > 0) {
+        // Récupérer tous les rôles du serveur
+        const guildRoles = interaction.guild.roles.cache;
+        
+        // Pour chaque rôle requis, essayer de trouver le rôle Discord correspondant
+        requiredRoles = requiredRoles.map(roleName => {
+          const role = guildRoles.find(r => 
+            r.name.toLowerCase() === roleName.toLowerCase() || 
+            r.id === roleName.replace(/[<@&>]/g, '')  // Gère les mentions de rôle Discord
+          );
+          
+          if (role) {
+            // Retourner un objet avec l'ID et le nom du rôle
+            return {
+              id: role.id,
+              name: role.name
+            };
+          }
+          
+          // Si le rôle n'est pas trouvé, conserver le nom comme texte
+          return {
+            id: null,
+            name: roleName
+          };
+        });
+      }
+    } catch (roleError) {
+      logger.error('Error parsing required roles:', roleError);
+      // En cas d'erreur, continuer avec une liste vide
+      requiredRoles = [];
+    }
+    
     // Générer un ID unique pour cette commande
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
@@ -221,6 +271,7 @@ async function handleOrderModalSubmit(interaction, client) {
       description: description,
       compensation: compensation,
       tags: tags,
+      requiredRoles: requiredRoles,
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
       clientName: clientName
@@ -251,7 +302,8 @@ async function handleOrderModalSubmit(interaction, client) {
         clientName,
         compensation,
         description,
-        tags
+        tags,
+        requiredRoles
       }
     });
     
@@ -302,16 +354,42 @@ async function publishModalOrder(interaction, orderId, client) {
     
     // Create the order data structure
     const orderData = {
+      orderId: orderId,
+      adminId: interaction.user.id,
+      data: {
+        clientName: orderSession.data.clientName,
+        compensation: orderSession.data.compensation,
+        description: orderSession.data.description,
+        tags: orderSession.data.tags || [],
+        requiredRoles: orderSession.data.requiredRoles || []
+      }
+    };
+    
+    // Store in database
+    try {
+      await orderDB.create(orderData);
+    } catch (dbError) {
+      logger.error('Error creating order in database:', dbError);
+      await interaction.followUp({
+        content: `Une erreur est survenue lors de la création de l'offre dans la base de données: ${dbError.message}`,
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // Create the order embed for display
+    const displayOrderData = {
       orderid: orderId,
       description: orderSession.data.description,
       compensation: orderSession.data.compensation,
       tags: orderSession.data.tags || [],
+      requiredRoles: orderSession.data.requiredRoles || [],
       adminName: interaction.user.tag,
       adminid: interaction.user.id
     };
     
     // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(orderData);
+    const { embed, row } = createSidebarOrderEmbed(displayOrderData);
     const logoAttachment = getLogoAttachment();
     
     // Récupérer le canal de publication
@@ -325,10 +403,28 @@ async function publishModalOrder(interaction, orderId, client) {
       return;
     }
     
-    // Publier l'offre
+    // Publier l'offre avec pings pour les rôles
     try {
+      // Récupérer les mentions de rôles à inclure dans le message
+      let rolesMentions = '';
+      if (orderSession.data.requiredRoles && orderSession.data.requiredRoles.length > 0) {
+        // Filtrer pour ne garder que les rôles avec un ID valide
+        const validRoles = orderSession.data.requiredRoles.filter(role => role.id);
+        
+        // Créer les mentions de rôles (max 5 rôles pour éviter le spam)
+        const maxRoles = Math.min(validRoles.length, 5);
+        for (let i = 0; i < maxRoles; i++) {
+          rolesMentions += `<@&${validRoles[i].id}> `;
+        }
+      }
+      
+      // Message de notification avec mentions de rôles si disponibles
+      const notificationMessage = rolesMentions 
+        ? `${rolesMentions}\n**📢 Nouvelle opportunité de travail disponible pour vos compétences!**`
+        : '**📢 Nouvelle opportunité de travail disponible!**';
+      
       const publishedMessage = await publishChannel.send({
-        content: '**📢 Nouvelle opportunité de travail disponible!**',
+        content: notificationMessage,
         embeds: [embed],
         components: [row],
         files: [logoAttachment]
