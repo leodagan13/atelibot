@@ -24,7 +24,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     }
     
     // Vérifier si l'utilisateur est le codeur assigné ou l'admin qui a posté l'offre
-    if (order.assignedTo !== userId && order.adminId !== userId) {
+    if (order.assignedto !== userId && order.adminid !== userId) {
       return interaction.reply({
         content: 'Vous n\'êtes pas autorisé à mettre à jour le statut de cette offre.',
         ephemeral: true
@@ -46,7 +46,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         message = 'Félicitations! Le projet a été marqué comme terminé.';
         
         // Si c'est le codeur qui complète l'offre, mettre à jour son profil
-        if (userId === order.assignedTo) {
+        if (userId === order.assignedto) {
           await coderDB.incrementCompletedOrders(userId);
         }
         break;
@@ -56,8 +56,8 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         message = 'Le projet a été annulé.';
         
         // Libérer le codeur pour qu'il puisse prendre d'autres offres
-        if (order.assignedTo) {
-          await coderDB.setActiveOrder(order.assignedTo, null);
+        if (order.assignedto) {
+          await coderDB.setActiveOrder(order.assignedto, null);
         }
         break;
         
@@ -98,18 +98,18 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         
         const historyEmbed = new EmbedBuilder()
           .setColor(color)
-          .setTitle(`${emoji} ${title} #${order.orderId}`)
+          .setTitle(`${emoji} ${title} #${order.orderid}`)
           .setDescription(`La commande a été ${newStatus === 'COMPLETED' ? 'terminée' : 'annulée'}.`)
           .addFields(
             { name: 'Client', value: 'Client confidentiel' },
             { name: 'Rémunération', value: order.compensation },
-            { name: 'Codeur', value: order.assignedTo ? `<@${order.assignedTo}>` : 'Non assigné' },
-            { name: 'Admin responsable', value: `<@${order.adminId}>` },
+            { name: 'Codeur', value: order.assignedto ? `<@${order.assignedto}>` : 'Non assigné' },
+            { name: 'Admin responsable', value: `<@${order.adminid}>` },
             { name: `${newStatus === 'COMPLETED' ? 'Terminée' : 'Annulée'} par`, value: `<@${userId}>` }
           );
           
         // Ajouter la durée du projet si c'est une complétion
-        if (newStatus === 'COMPLETED' && order.assignedAt) {
+        if (newStatus === 'COMPLETED' && order.assignedat) {
           // Importe la fonction getProjectDuration
           const completeOrderModule = require('../buttons/completeOrder');
           const getProjectDuration = completeOrderModule.getProjectDuration;
@@ -144,7 +144,7 @@ async function updateChannelEmbed(interaction, order, newStatus) {
   const projectMessage = messages.find(m => 
     m.embeds.length > 0 && 
     m.embeds[0].title && 
-    m.embeds[0].title.includes(`Projet #${order.orderId}`)
+    m.embeds[0].title.includes(`Projet #${order.orderid}`)
   );
   
   if (projectMessage) {

@@ -18,10 +18,10 @@ module.exports = {
     
     try {
       // Find the order in database
-      const order = await orderDB.findById(orderId);
+      const order = await orderDB.findById(orderid);
       
       if (!order) {
-        return message.reply(`Aucune offre trouvée avec l'ID ${orderId}.`);
+        return message.reply(`Aucune offre trouvée avec l'ID ${orderid}.`);
       }
       
       // Check if user is the admin who created the order
@@ -36,16 +36,12 @@ module.exports = {
       }
       
       // If the order is assigned to a coder, update the coder's status
-      if (order.assignedTo) {
-        await coderDB.update(order.assignedTo, {
-          activeOrderid: null
-        });
+      if (order.assignedto) {
+        await coderDB.setActiveOrder(order.assignedto, null);
       }
       
       // Update order status
-      await orderDB.update(orderid, {
-        status: 'CANCELLED'
-      });
+      await orderDB.updateStatus(orderid, 'CANCELLED');
       
       // Try to update the original message
       try {
@@ -69,9 +65,9 @@ module.exports = {
       }
       
       // If there's a private channel, notify and archive it
-      if (order.privateChannelid) {
+      if (order.privatechannelid) {
         try {
-          const privateChannel = message.guild.channels.cache.get(order.privateChannelid);
+          const privateChannel = message.guild.channels.cache.get(order.privatechannelid);
           if (privateChannel) {
             await privateChannel.send({
               content: `⚠️ **Cette offre a été annulée par <@${message.author.id}>.**`
