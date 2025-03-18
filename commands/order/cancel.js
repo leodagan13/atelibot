@@ -67,24 +67,22 @@ module.exports = {
       
       // Try to update the original message
       try {
-        const guild = isSlash ? interaction.guild : interaction.guild;
-        const channel = guild.channels.cache.get(order.channelid);
-        if (channel) {
-          const orderMessage = await channel.messages.fetch(order.messageid);
-          if (orderMessage) {
-            // Disable the button in the first action row
-            const components = orderMessage.components;
-            if (components.length > 0 && components[0].components.length > 0) {
-              components[0].components[0].data.disabled = true;
-              components[0].components[0].data.label = 'Offre annulée';
-              components[0].components[0].data.style = 4; // DANGER style
-              
-              await orderMessage.edit({ components });
+        const publishChannelId = require('../../config/config').PUBLISH_ORDERS_CHANNEL_ID;
+        const publishChannel = client.channels.cache.get(publishChannelId);
+        
+        if (publishChannel && order.messageid) {
+          try {
+            const orderMessage = await publishChannel.messages.fetch(order.messageid);
+            if (orderMessage) {
+              await orderMessage.delete();
+              logger.info(`Deleted message ${order.messageid} for cancelled order ${orderid}`);
             }
+          } catch (fetchError) {
+            logger.error(`Failed to fetch message ${order.messageid} for order ${orderid}:`, fetchError);
           }
         }
       } catch (err) {
-        logger.error(`Failed to update message for cancelled order ${orderid}:`, err);
+        logger.error(`Failed to delete message for cancelled order ${orderid}:`, err);
       }
       
       // If there's a private channel, notify and archive it

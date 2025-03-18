@@ -59,6 +59,55 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         if (order.assignedto) {
           await coderDB.setActiveOrder(order.assignedto, null);
         }
+        
+        // Supprimer le message dans le canal de publication
+        if (newStatus === 'CANCELLED') {
+          try {
+            const publishChannelId = require('../../config/config').PUBLISH_ORDERS_CHANNEL_ID;
+            const publishChannel = interaction.guild.channels.cache.get(publishChannelId);
+            
+            if (publishChannel && order.messageid) {
+              try {
+                const orderMessage = await publishChannel.messages.fetch(order.messageid);
+                if (orderMessage) {
+                  await orderMessage.delete();
+                  logger.info(`Deleted message ${order.messageid} for cancelled order ${orderId}`);
+                }
+              } catch (fetchError) {
+                logger.error(`Failed to fetch message ${order.messageid} for order ${orderId}:`, fetchError);
+              }
+            } else {
+              // Méthode alternative - rechercher le message par contenu
+              try {
+                const publishChannel = interaction.client.channels.cache.get(publishChannelId);
+                if (publishChannel) {
+                  // Fetch recent messages in the publish channel
+                  const messages = await publishChannel.messages.fetch({ limit: 50 });
+                  
+                  // Find the message that contains the order ID
+                  const orderMessage = messages.find(m => 
+                    m.embeds.length > 0 && 
+                    m.embeds[0].fields && 
+                    m.embeds[0].fields.some(field => field.value && field.value.includes(order.orderid))
+                  );
+                  
+                  if (orderMessage) {
+                    // Delete the message
+                    await orderMessage.delete();
+                    logger.info(`Deleted message for cancelled order ${order.orderid} from publish channel (using content search)`);
+                  } else {
+                    logger.warn(`Could not find message for cancelled order ${order.orderid} in publish channel`);
+                  }
+                }
+              } catch (searchErr) {
+                logger.error(`Failed to search for message in publish channel for order ${orderId}:`, searchErr);
+              }
+            }
+          } catch (err) {
+            logger.error(`Failed to delete message for cancelled order ${orderId}:`, err);
+          }
+        }
+        
         break;
         
       default:
