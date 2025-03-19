@@ -339,7 +339,6 @@ async function publishOrder(interaction, orderSession, client) {
         content: '**📢 Nouvelle opportunité de travail disponible!**',
         embeds: [embed],
         components: [row],
-        files: [logoAttachment]
       });
       
       // Update the order with the message ID
