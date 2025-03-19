@@ -5,6 +5,7 @@ const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
+const { moveChannelToMonthlyCategory } = require('../../utils/channelManager');
 
 /**
  * Gère la complétion d'une offre par un codeur ou un administrateur
@@ -95,6 +96,9 @@ async function handleOrderCompletion(interaction, orderId) {
         files: [logoAttachment]
       });
     }
+    
+    // Déplacer le canal dans la catégorie du mois courant
+    await moveChannelToMonthlyCategory(interaction.channel, interaction.guild, order.assignedto);
     
   } catch (error) {
     logger.error('Error handling order completion:', error);

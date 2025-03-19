@@ -5,6 +5,7 @@ const { adminRoles, HISTORY_ORDERS_CHANNEL_ID } = require('../../config/config')
 const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
+const { moveChannelToMonthlyCategory } = require('../../utils/channelManager');
 
 /**
  * Gère la clôture d'un projet par un administrateur
@@ -98,6 +99,9 @@ async function handleAdminCompletion(interaction, orderId) {
         files: [logoAttachment]
       });
     }
+    
+    // Déplacer le canal dans la catégorie du mois courant
+    await moveChannelToMonthlyCategory(interaction.channel, interaction.guild, order.assignedto);
     
   } catch (error) {
     logger.error('Error handling admin completion:', error);

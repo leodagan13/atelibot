@@ -208,7 +208,7 @@ function createPrivateChannelEmbed(order, developerID) {
         .setCustomId(`request_verification_${order.orderid}`)
         .setLabel('Request Verification')
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('✓'),
+        .setEmoji('✅'),
       new ButtonBuilder()
         .setCustomId(`admin_complete_${order.orderid}`)
         .setLabel('Admin Verification')
