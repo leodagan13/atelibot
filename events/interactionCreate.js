@@ -143,7 +143,7 @@ module.exports = {
           
           // Annulation d'ordre - Ajout pour le nouveau système
           else if (customId.startsWith('cancel_modal_order_')) {
-            await cancelModalOrder(interaction);
+            await cancelModalOrder(interaction, client);
           }
           
           // Confirmation d'ordre - ancienne méthode  
@@ -600,17 +600,19 @@ async function publishModalOrder(interaction, orderId, client) {
 /**
  * Annule la création d'offre via modal
  * @param {Object} interaction - Interaction Discord (button)
+ * @param {Object} client - Discord client
  */
-async function cancelModalOrder(interaction) {
+async function cancelModalOrder(interaction, client) {
   try {
     // Clear the active order
     client.activeOrders.delete(interaction.user.id);
     
-    // Mise à jour du message
+    // Update the message without embeds or files (logo)
     await interaction.update({
       content: '❌ Création d\'offre annulée.',
       embeds: [],
-      components: []
+      components: [],
+      files: [] // This explicitly removes any files (including the logo)
     });
     
     logger.info(`Order creation cancelled by ${interaction.user.tag}`);
@@ -618,10 +620,14 @@ async function cancelModalOrder(interaction) {
   } catch (error) {
     logger.error('Error cancelling modal order:', error);
     try {
-      await interaction.followUp({
-        content: 'Une erreur est survenue lors de l\'annulation de l\'offre.',
-        ephemeral: true
-      });
+      if (!interaction.replied) {
+        await interaction.update({
+          content: 'Une erreur est survenue lors de l\'annulation de l\'offre.',
+          embeds: [],
+          components: [],
+          files: [] // Also remove files in error case
+        });
+      }
     } catch (followupError) {
       logger.error('Failed to send error followup:', followupError);
     }
