@@ -137,6 +137,16 @@ async function sendInitialMessage(channel, order, coderId) {
   });
   
   await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);
+  
+  // Si une deadline est définie, ajouter un message spécifique
+  if (order.deadline) {
+    const deadlineDate = new Date(order.deadline);
+    const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
+    
+    await channel.send({
+      content: `⚠️ **Rappel:** Ce projet a une deadline fixée au <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>). Veuillez planifier votre travail en conséquence.`
+    });
+  }
 }
 
 /**

@@ -41,7 +41,8 @@ const orderDB = {
         createdat: new Date().toISOString(),
         tags: orderData.data.tags || [],
         required_roles: requiredRoles, // Add required roles
-        messageid: null  // Sera mis à jour après publication
+        messageid: null,  // Sera mis à jour après publication
+        deadline: orderData.data.deadline ? new Date(orderData.data.deadline).toISOString() : null // Ajout de la deadline
       };
       
       console.log("Données formatées pour insertion:", orderToInsert);
@@ -213,6 +214,19 @@ const orderDB = {
       return data;
     } catch (error) {
       logger.error(`Error finding orders with required role ${roleId}:`, error);
+      throw error;
+    }
+  },
+  
+  // Ajouter une nouvelle fonction pour récupérer les offres avec deadline proche
+  async getApproachingDeadlines() {
+    try {
+      const { data, error } = await supabase.rpc('get_approaching_deadlines');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      logger.error('Error fetching approaching deadlines:', error);
       throw error;
     }
   }

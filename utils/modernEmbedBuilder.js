@@ -125,12 +125,19 @@ function createSidebarOrderEmbed(order) {
       { name: `${FIELD_ICONS.compensation} Compensation`, value: order.compensation, inline: true },
       { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge(order.status || 'OPEN'), inline: true },
       { name: `${FIELD_ICONS.orderid} Project ID`, value: `\`${order.orderid}\``, inline: true }
-    )
-    .setFooter({ 
-      text: `Posted by ${order.adminName || 'Admin'} • ${new Date().toLocaleDateString()}`,
-      iconURL: 'attachment://logo.png'
-    })
-    .setTimestamp();
+    );
+    
+  // Ajouter la deadline si elle existe
+  if (order.deadline) {
+    const deadlineDate = new Date(order.deadline);
+    // Utiliser le timestamp Discord pour un affichage localisé de la date
+    const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
+    embed.addFields({ 
+      name: `${FIELD_ICONS.date} Deadline`, 
+      value: `<t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>)`,
+      inline: false
+    });
+  }
     
   // Add skills/tags if available
   if (order.tags && order.tags.length > 0) {
@@ -153,6 +160,13 @@ function createSidebarOrderEmbed(order) {
     
     embed.addFields({ name: `${FIELD_ICONS.skills} Skills/Roles Required`, value: rolesList || 'No specific roles required' });
   }
+  
+  // Fin du message avec footer
+  embed.setFooter({ 
+    text: `Posted by ${order.adminName || 'Admin'}`,
+    iconURL: 'attachment://logo.png'
+  })
+  .setTimestamp();
   
   // Create button row for accepting the order
   const row = new ActionRowBuilder()

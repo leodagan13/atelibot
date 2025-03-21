@@ -75,14 +75,23 @@ module.exports = {
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
+        // Ajouter le champ pour la deadline
+        const deadlineInput = new TextInputBuilder()
+          .setCustomId('deadline')
+          .setLabel('Deadline (YYYY-MM-DD)')
+          .setPlaceholder('Ex: 2025-04-15 pour le 15 avril 2025')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short);
+
         // Organisation des champs en lignes
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
+        const deadlineRow = new ActionRowBuilder().addComponents(deadlineInput);
 
         // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow);
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow);
 
         // Afficher le modal
         await interaction.showModal(modal);
