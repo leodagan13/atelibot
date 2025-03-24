@@ -3,6 +3,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBu
 const config = require('../config/config');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../utils/logger');
 
 /**
  * Colors for different embed types and statuses
@@ -114,6 +115,8 @@ function getLogoAttachment() {
  * @returns {Object} - Contains embed and action row
  */
 function createSidebarOrderEmbed(order) {
+  logger.debug(`Creating sidebar embed with data: ${JSON.stringify(order)}`);
+
   const embed = new EmbedBuilder()
     .setColor(config.appearance.accentColor || '#ff3366') // Red sidebar accent
     .setTitle(`New Project Opportunity`)
@@ -127,16 +130,31 @@ function createSidebarOrderEmbed(order) {
       { name: `${FIELD_ICONS.orderid} Project ID`, value: `\`${order.orderid}\``, inline: true }
     );
     
-  // Ajouter la deadline si elle existe
+  // Add deadline if exists
+  logger.debug(`Checking for deadline: ${order.deadline}`);
   if (order.deadline) {
     const deadlineDate = new Date(order.deadline);
-    // Utiliser le timestamp Discord pour un affichage localisé de la date
-    const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
-    embed.addFields({ 
-      name: `${FIELD_ICONS.date} Deadline`, 
-      value: `<t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>)`,
-      inline: false
-    });
+    // Vérifier que c'est une date valide
+    if (!isNaN(deadlineDate.getTime())) {
+      // Utiliser le timestamp Discord pour un affichage localisé de la date
+      const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
+      embed.addFields({ 
+        name: `${FIELD_ICONS.date} Deadline`, 
+        value: `<t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>)`,
+        inline: false
+      });
+      
+      // Ajouter un message d'urgence si la deadline est proche (moins de 72h)
+      const now = new Date();
+      const diffHours = (deadlineDate - now) / (1000 * 60 * 60);
+      if (diffHours > 0 && diffHours < 72) {
+        embed.addFields({ 
+          name: `⚠️ Urgent`, 
+          value: `La deadline est dans moins de 3 jours!`,
+          inline: false
+        });
+      }
+    }
   }
     
   // Add skills/tags if available

@@ -24,10 +24,29 @@ const orderDB = {
     try {
       console.log("Création d'ordre avec données:", orderData);
       
+      // Log spécifique pour la deadline
+      console.log("Deadline reçue:", orderData.data.deadline);
+      
       // Process required roles if present
       let requiredRoles = [];
       if (orderData.data.requiredRoles && Array.isArray(orderData.data.requiredRoles)) {
         requiredRoles = orderData.data.requiredRoles;
+      }
+      
+      // Convertir la deadline en format ISO si c'est une date valide
+      let deadlineISO = null;
+      if (orderData.data.deadline) {
+        try {
+          const deadlineDate = new Date(orderData.data.deadline);
+          if (!isNaN(deadlineDate.getTime())) {
+            deadlineISO = deadlineDate.toISOString();
+            console.log("Deadline convertie:", deadlineISO);
+          } else {
+            console.warn("Deadline invalide:", orderData.data.deadline);
+          }
+        } catch (dateError) {
+          console.error("Erreur de conversion de la deadline:", dateError);
+        }
       }
       
       // Utiliser des noms de colonnes corrects selon les screenshots
@@ -42,7 +61,7 @@ const orderDB = {
         tags: orderData.data.tags || [],
         required_roles: requiredRoles, // Add required roles
         messageid: null,  // Sera mis à jour après publication
-        deadline: orderData.data.deadline ? new Date(orderData.data.deadline).toISOString() : null // Ajout de la deadline
+        deadline: deadlineISO // Utiliser la version ISO convertie
       };
       
       console.log("Données formatées pour insertion:", orderToInsert);
@@ -56,6 +75,9 @@ const orderDB = {
         console.error("Erreur Supabase:", error);
         throw error;
       }
+      
+      // Log du résultat
+      console.log("Données insérées avec succès:", data[0]);
       
       return data[0];
     } catch (error) {

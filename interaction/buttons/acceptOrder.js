@@ -32,13 +32,21 @@ async function handleOrderAcceptance(interaction, orderId) {
       });
     }
     
-    // Récupérer les informations de l'offre depuis Supabase
+    // Assurez-vous que l'ordre complet est bien récupéré depuis la base de données
     const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
         content: 'Cette offre n\'existe plus ou a déjà été prise.',
         ephemeral: true
       });
+    }
+    
+    // Log pour débogage
+    logger.debug(`Order data retrieved for acceptance: ${JSON.stringify(order)}`);
+    
+    // Vérifier que la deadline est bien présente dans les données
+    if (order.deadline) {
+      logger.debug(`Deadline found: ${order.deadline}`);
     }
     
     if (order.status !== 'OPEN') {
@@ -57,11 +65,11 @@ async function handleOrderAcceptance(interaction, orderId) {
     // Ajouter le codeur à la liste des codeurs actifs en mémoire
     activeCoders.add(coderId);
     
-    // Créer un channel privé
+    // Créer un channel privé avec toutes les données
     const guild = interaction.guild;
     const privateChannel = await createPrivateChannel(guild, order, coderId);
     
-    // Envoyer un message dans le nouveau canal
+    // Envoyer un message dans le nouveau canal avec toutes les données
     await sendInitialMessage(privateChannel, order, coderId);
     
     // Répondre à l'interaction
@@ -121,6 +129,8 @@ async function createPrivateChannel(guild, order, coderId) {
  * @param {String} coderId - ID du codeur
  */
 async function sendInitialMessage(channel, order, coderId) {
+  logger.debug(`Creating channel message with order: ${JSON.stringify(order)}`);
+  
   // Récupérer les tags de l'ordre
   const tagsFormatted = order.tags && order.tags.length > 0
     ? order.tags.map(tag => `🔴 \`${tag}\``).join('\n')

@@ -231,6 +231,8 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     // Create embed for the order
     const { embed, row } = createSidebarOrderEmbed(orderData);
     
+    logger.debug(`Publishing order with data: ${JSON.stringify(orderData)}`);
+
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
     
@@ -317,13 +319,17 @@ async function publishOrder(interaction, orderSession, client) {
       compensation: orderSession.data.compensation,
       tags: orderSession.data.tags || [],
       adminName: interaction.user.tag,
-      adminid: interaction.user.id
+      adminid: interaction.user.id,
+      deadline: orderSession.data.deadline || null,
+      status: 'OPEN'
     };
     
     // Create embed for the order
     const { embed, row } = createSidebarOrderEmbed(orderData);
     const logoAttachment = getLogoAttachment();
     
+    logger.debug(`Publishing order with data: ${JSON.stringify(orderData)}`);
+
     // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
     
@@ -395,8 +401,75 @@ async function cancelOrder(interaction, client) {
   }
 }
 
+async function publishModalOrder(interaction, orderId, client) {
+  try {
+    const orderSession = client.activeOrders.get(interaction.user.id);
+    if (!orderSession) {
+      return interaction.reply({
+        content: 'Session de création d\'offre expirée ou invalide.',
+        ephemeral: true
+      });
+    }
+
+    // Create the order data structure for display
+    const displayOrderData = {
+      orderid: orderId,
+      description: orderSession.data.description,
+      compensation: orderSession.data.compensation,
+      tags: orderSession.data.tags || [],
+      requiredRoles: orderSession.data.requiredRoles || [],
+      adminName: interaction.user.tag,
+      adminid: interaction.user.id,
+      deadline: orderSession.data.deadline || null,
+      status: 'OPEN'
+    };
+
+    // Create embed for the order
+    const { embed, row } = createSidebarOrderEmbed(displayOrderData);
+    const logoAttachment = getLogoAttachment();
+
+    // Get the publish channel
+    const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
+    if (!publishChannel) {
+      logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
+      return interaction.reply({
+        content: 'Erreur: Canal de publication introuvable.',
+        ephemeral: true
+      });
+    }
+
+    // Publish the order
+    const publishedMessage = await publishChannel.send({
+      content: '**📢 Nouvelle opportunité de travail disponible!**',
+      embeds: [embed],
+      components: [row],
+      files: [logoAttachment]
+    });
+
+    // Update the order with the message ID
+    await orderDB.updateMessageId(orderId, publishedMessage.id);
+
+    // Clear the active order
+    client.activeOrders.delete(interaction.user.id);
+
+    // Notify success
+    return interaction.reply({
+      content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
+      ephemeral: true
+    });
+
+  } catch (error) {
+    logger.error('Error publishing modal order:', error);
+    return interaction.reply({
+      content: 'Une erreur est survenue lors de la publication de l\'offre.',
+      ephemeral: true
+    });
+  }
+}
+
 module.exports = {
   processOrderInput,
   publishOrder,
-  cancelOrder
+  cancelOrder,
+  publishModalOrder
 };

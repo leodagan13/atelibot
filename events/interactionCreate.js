@@ -66,6 +66,31 @@ module.exports = {
             .map(tag => tag.trim())
             .filter(tag => tag.length > 0);
           
+          // Process deadline
+          let deadline = null;
+          try {
+            const deadlineString = interaction.fields.getTextInputValue('deadline') || '';
+            if (deadlineString.trim()) {
+              // Validate deadline format (basic validation)
+              if (/^\d{4}-\d{2}-\d{2}$/.test(deadlineString.trim())) {
+                deadline = new Date(deadlineString.trim());
+                
+                // Check if it's a valid date
+                if (isNaN(deadline.getTime())) {
+                  logger.warn(`Invalid date for deadline: ${deadlineString}`);
+                } else {
+                  // Valid date, format as ISO string
+                  deadline = deadline.toISOString();
+                  logger.info(`Valid deadline parsed: ${deadline}`);
+                }
+              } else {
+                logger.warn(`Invalid deadline format: ${deadlineString}`);
+              }
+            }
+          } catch (dateError) {
+            logger.warn(`Error processing deadline: ${dateError.message}`);
+          }
+          
           // Store these values in the session
           const orderSession = client.activeOrders.get(userId);
           if (orderSession) {
@@ -74,6 +99,7 @@ module.exports = {
               compensation,
               description,
               tags,
+              deadline,
               requiredRoles: []
             };
             orderSession.step = 'select_roles';
@@ -322,75 +348,70 @@ module.exports = {
  */
 async function handleOrderModalSubmit(interaction, client) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     
-    // Log the submission - this function is deprecated as we now use the two-step process
-    logger.warn(`Using deprecated handleOrderModalSubmit for ${interaction.user.tag} - this should be migrated`);
-    
-    // Get values from the form
+    // Get values from modal
     const clientName = interaction.fields.getTextInputValue('clientName');
     const compensation = interaction.fields.getTextInputValue('compensation');
     const description = interaction.fields.getTextInputValue('description');
+    const tagsInput = interaction.fields.getTextInputValue('tags');
     
     // Process tags
-    const tagsString = interaction.fields.getTextInputValue('tags') || '';
-    const tags = tagsString.split(',')
+    const tags = tagsInput.split(',')
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0);
-    
-    // Process required roles - try to get from the form if it exists
+      
+    // Process required roles
+    const requiredRolesInput = interaction.fields.getTextInputValue('requiredRoles');
     let requiredRoles = [];
+    
     try {
-      if (interaction.fields.getTextInputValue('requiredRoles')) {
-        const rolesString = interaction.fields.getTextInputValue('requiredRoles') || '';
-        
-        // Extract Discord role names/mentions
-        requiredRoles = rolesString.split(',')
+      if (requiredRolesInput.trim()) {
+        requiredRoles = requiredRolesInput.split(',')
           .map(role => role.trim())
           .filter(role => role.length > 0)
           .map(role => {
-            // If it's a role mention (@Role), clean to get just the name
-            if (role.startsWith('@')) {
-              return role.substring(1); // Remove the @ from the beginning
-            }
-            return role;
-          });
-        
-        // Try to resolve mentioned role IDs
-        if (requiredRoles.length > 0) {
-          // Get all server roles
-          const guildRoles = interaction.guild.roles.cache;
-          
-          // For each required role, try to find the corresponding Discord role
-          requiredRoles = requiredRoles.map(roleName => {
-            const role = guildRoles.find(r => 
-              r.name.toLowerCase() === roleName.toLowerCase() || 
-              r.id === roleName.replace(/[<@&>]/g, '')  // Handle Discord role mentions
-            );
-            
-            if (role) {
-              // Return an object with the role ID and name
-              return {
-                id: role.id,
-                name: role.name
-              };
-            }
-            
-            // If role not found, keep the name as text
+            // Remove @ if present
+            const roleName = role.startsWith('@') ? role.substring(1) : role;
+            // Try to find role in guild
+            const guildRole = interaction.guild.roles.cache.find(r => r.name === roleName);
             return {
-              id: null,
-              name: roleName
+              name: roleName,
+              id: guildRole ? guildRole.id : null
             };
           });
-        }
       }
     } catch (roleError) {
-      logger.error('Error parsing required roles:', roleError);
-      // In case of error, continue with an empty list
+      logger.error('Error processing required roles:', roleError);
       requiredRoles = [];
     }
     
-    // Generate a unique ID for this order
+    // Process deadline
+    let deadline = null;
+    try {
+      const deadlineString = interaction.fields.getTextInputValue('deadline') || '';
+      if (deadlineString.trim()) {
+        // Validate deadline format (basic validation)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(deadlineString.trim())) {
+          deadline = new Date(deadlineString.trim());
+          
+          // Check if it's a valid date
+          if (isNaN(deadline.getTime())) {
+            throw new Error('Invalid date');
+          }
+          
+          logger.debug(`Valid deadline parsed: ${deadline.toISOString()}`);
+        } else {
+          throw new Error('Format incorrect');
+        }
+      }
+    } catch (dateError) {
+      logger.warn(`Invalid deadline format: ${interaction.fields.getTextInputValue('deadline')}`);
+      // On continue sans deadline en cas d'erreur
+      deadline = null;
+    }
+    
+    // Generate unique order ID
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
     // Create order data for preview
@@ -402,58 +423,39 @@ async function handleOrderModalSubmit(interaction, client) {
       requiredRoles: requiredRoles,
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
-      clientName: clientName
+      clientName: clientName,
+      deadline: deadline ? deadline.toISOString() : null // Inclure la deadline
     };
     
-    // Create preview embed and components
+    // Create embed for preview
     const { embed, row } = createSidebarOrderEmbed(orderData);
-    
-    // Create confirmation buttons
-    const actionRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(`confirm_modal_order_${uniqueOrderId}`)
-          .setLabel('Publier l\'offre')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`cancel_modal_order_${uniqueOrderId}`)
-          .setLabel('Annuler')
-          .setStyle(ButtonStyle.Danger)
-      );
-    
     const logoAttachment = getLogoAttachment();
     
-    // Store data in the active order session
+    // Store order data temporarily
     client.activeOrders.set(interaction.user.id, {
-      orderId: uniqueOrderId,
+      step: 'preview',
       data: {
         clientName,
         compensation,
         description,
         tags,
-        requiredRoles
-      }
+        requiredRoles,
+        deadline: deadline ? deadline.toISOString() : null
+      },
+      channelId: interaction.channelId
     });
     
-    // Show preview with confirmation options
+    // Send preview with buttons
     await interaction.editReply({
-      content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
+      content: 'Voici un aperçu de votre offre. Vérifiez les détails et confirmez la publication.',
       embeds: [embed],
-      components: [actionRow],
+      components: [row],
       files: [logoAttachment]
     });
     
-    logger.info(`Legacy order form submitted by ${interaction.user.tag} - awaiting confirmation`);
-    
   } catch (error) {
     logger.error('Error handling order modal submit:', error);
-    
-    if (interaction.deferred) {
-      await interaction.editReply({
-        content: 'Une erreur est survenue lors du traitement du formulaire.',
-        ephemeral: true
-      });
-    } else if (!interaction.replied) {
+    if (!interaction.replied) {
       await interaction.reply({
         content: 'Une erreur est survenue lors du traitement du formulaire.',
         ephemeral: true
@@ -470,13 +472,10 @@ async function handleOrderModalSubmit(interaction, client) {
  */
 async function publishModalOrder(interaction, orderId, client) {
   try {
-    await interaction.deferUpdate();
-    
-    // Get order session data
     const orderSession = client.activeOrders.get(interaction.user.id);
     if (!orderSession) {
-      return interaction.followUp({
-        content: 'Erreur: Les données de l\'offre n\'ont pas été trouvées.',
+      return interaction.reply({
+        content: 'Session de création d\'offre expirée ou invalide.',
         ephemeral: true
       });
     }
@@ -490,23 +489,15 @@ async function publishModalOrder(interaction, orderId, client) {
         compensation: orderSession.data.compensation,
         description: orderSession.data.description,
         tags: orderSession.data.tags || [],
-        requiredRoles: orderSession.data.requiredRoles || []
+        requiredRoles: orderSession.data.requiredRoles || [],
+        deadline: orderSession.data.deadline // Inclure la deadline
       }
     };
     
-    // Save to database
-    try {
-      await orderDB.create(orderData);
-    } catch (dbError) {
-      logger.error('Error creating order in database:', dbError);
-      await interaction.followUp({
-        content: `Une erreur est survenue lors de la création de l'offre dans la base de données: ${dbError.message}`,
-        ephemeral: true
-      });
-      return;
-    }
+    // Create the order in database
+    await orderDB.create(orderData);
     
-    // Create display data
+    // Create display data for embed
     const displayOrderData = {
       orderid: orderId,
       description: orderSession.data.description,
@@ -514,86 +505,51 @@ async function publishModalOrder(interaction, orderId, client) {
       tags: orderSession.data.tags || [],
       requiredRoles: orderSession.data.requiredRoles || [],
       adminName: interaction.user.tag,
-      adminid: interaction.user.id
+      adminid: interaction.user.id,
+      deadline: orderSession.data.deadline,
+      status: 'OPEN'
     };
     
-    // Create embed and components
+    // Create embed for the order
     const { embed, row } = createSidebarOrderEmbed(displayOrderData);
     const logoAttachment = getLogoAttachment();
     
-    // Get publish channel
+    // Get the publish channel
     const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
     if (!publishChannel) {
       logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
-      await interaction.followUp({
+      return interaction.reply({
         content: 'Erreur: Canal de publication introuvable.',
         ephemeral: true
       });
-      return;
     }
     
-    // Publish with role mentions
-    try {
-      // Prepare role mentions
-      let rolesMentions = '';
-      
-      // Only mention roles if there are any selected
-      if (orderSession.data.requiredRoles && orderSession.data.requiredRoles.length > 0) {
-        // Each role already has an ID from the role selector
-        orderSession.data.requiredRoles.forEach(role => {
-          if (role.id) {
-            rolesMentions += `<@&${role.id}> `;
-          }
-        });
-      }
-      
-      // Create notification message with role mentions
-      const notificationMessage = rolesMentions 
-        ? `${rolesMentions}\n**📢 Nouvelle opportunité de travail disponible pour vos compétences!**`
-        : '**📢 Nouvelle opportunité de travail disponible!**';
-      
-      // Send to channel
-      const publishedMessage = await publishChannel.send({
-        content: notificationMessage,
-        embeds: [embed],
-        components: [row],
-        files: [logoAttachment],
-        allowedMentions: { roles: orderSession.data.requiredRoles.map(r => r.id).filter(Boolean) }
-      });
-      
-      // Update order with message ID
-      await orderDB.updateMessageId(orderId, publishedMessage.id);
-    } catch (publishError) {
-      logger.error('Error publishing order to channel:', publishError);
-      await interaction.followUp({
-        content: 'Une erreur est survenue lors de la publication de l\'offre.',
-        ephemeral: true
-      });
-      return;
-    }
-    
-    // Update reply message
-    await interaction.editReply({
-      content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
-      embeds: [],
-      components: [],
-      files: []
+    // Publish the order
+    const publishedMessage = await publishChannel.send({
+      content: '**📢 Nouvelle opportunité de travail disponible!**',
+      embeds: [embed],
+      components: [row],
+      files: [logoAttachment]
     });
     
-    // Clean up
+    // Update the order with the message ID
+    await orderDB.updateMessageId(orderId, publishedMessage.id);
+    
+    // Clear the active order
     client.activeOrders.delete(interaction.user.id);
-    logger.info(`Order ${orderId} published by ${interaction.user.tag}`);
+    
+    // Notify success
+    return interaction.reply({
+      content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
+      ephemeral: true
+    });
     
   } catch (error) {
     logger.error('Error publishing modal order:', error);
-    try {
-      await interaction.followUp({
-        content: 'Une erreur est survenue lors de la publication de l\'offre.',
-        ephemeral: true
-      });
-    } catch (followupError) {
-      logger.error('Failed to send error followup:', followupError);
-    }
+    return interaction.reply({
+      content: 'Une erreur est survenue lors de la publication de l\'offre.',
+      ephemeral: true
+    });
   }
 }
 
