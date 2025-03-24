@@ -98,9 +98,19 @@ async function handleOrderAcceptance(interaction, orderId) {
  * @returns {Object} - Le canal créé
  */
 async function createPrivateChannel(guild, order, coderId) {
+  // ID de la catégorie principale où les canaux de projets actifs doivent être créés
+  const PROJECTS_CATEGORY_ID = '1351732830144561192';
+  
+  // Vérifier si la catégorie existe
+  const category = guild.channels.cache.get(PROJECTS_CATEGORY_ID);
+  if (!category) {
+    logger.warn(`Catégorie de projets avec ID ${PROJECTS_CATEGORY_ID} non trouvée. Le canal sera créé sans catégorie parente.`);
+  }
+  
   return await guild.channels.create({
     name: `projet-${order.orderid}`,
     type: ChannelType.GuildText,
+    parent: category ? category.id : null, // Définir la catégorie parente
     permissionOverwrites: [
       {
         id: guild.id, // @everyone
