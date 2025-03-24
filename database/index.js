@@ -251,6 +251,40 @@ const orderDB = {
       logger.error('Error fetching approaching deadlines:', error);
       throw error;
     }
+  },
+
+  // Update last verification request timestamp
+  async updateLastVerificationRequest(orderId) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ lastverificationrequest: new Date().toISOString() })
+        .eq('orderid', orderId)
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      logger.error(`Error updating verification request timestamp for order ${orderId}:`, error);
+      throw error;
+    }
+  },
+  
+  // Function for admins to reset the verification cooldown if needed
+  async resetVerificationCooldown(orderId) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ lastverificationrequest: null })
+        .eq('orderid', orderId)
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      logger.error(`Error resetting verification cooldown for order ${orderId}:`, error);
+      throw error;
+    }
   }
 };
 
