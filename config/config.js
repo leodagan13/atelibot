@@ -29,7 +29,6 @@ const enablePrefixCommands = process.env.ENABLE_PREFIX_COMMANDS?.toLowerCase() =
 module.exports = {
     activeOrderSessions,
     activeCoders,
-    adminRoles,
     adminRoleIds,  // Added adminRoleIds to exports
     prefix: '/',
     enablePrefixCommands,
