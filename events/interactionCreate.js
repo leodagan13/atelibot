@@ -281,7 +281,8 @@ module.exports = {
             requiredRoles: orderSession.data.requiredRoles || [],
             adminName: interaction.user.tag,
             adminid: interaction.user.id,
-            clientName: orderSession.data.clientName
+            clientName: orderSession.data.clientName,
+            deadline: orderSession.data.deadline
           };
           
           // Create preview embed
@@ -424,7 +425,7 @@ async function handleOrderModalSubmit(interaction, client) {
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
       clientName: clientName,
-      deadline: deadline ? deadline.toISOString() : null // Inclure la deadline
+      deadline: deadline ? deadline.toISOString() : null
     };
     
     // Create embed for preview
@@ -490,7 +491,7 @@ async function publishModalOrder(interaction, orderId, client) {
         description: orderSession.data.description,
         tags: orderSession.data.tags || [],
         requiredRoles: orderSession.data.requiredRoles || [],
-        deadline: orderSession.data.deadline // Inclure la deadline
+        deadline: orderSession.data.deadline
       }
     };
     
