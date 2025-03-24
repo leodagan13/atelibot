@@ -1,4 +1,4 @@
-// interaction/buttons/requestVerification.js - Gestionnaire pour les demandes de vérification
+// interaction/buttons/requestVerification.js - Updated with 24h cooldown
 const { orderDB } = require('../../database');
 const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
@@ -37,6 +37,26 @@ async function handleVerificationRequest(interaction, orderId) {
         ephemeral: true
       });
     }
+    
+    // Vérifier si une demande de vérification a été faite dans les dernières 24 heures
+    if (order.lastverificationrequest) {
+      const lastRequest = new Date(order.lastverificationrequest);
+      const now = new Date();
+      const hoursSinceLastRequest = (now - lastRequest) / (1000 * 60 * 60);
+      
+      if (hoursSinceLastRequest < 24) {
+        const timeRemaining = Math.ceil(24 - hoursSinceLastRequest);
+        const timeFormat = timeRemaining === 1 ? 'heure' : 'heures';
+        
+        return interaction.reply({
+          content: `Vous avez déjà demandé une vérification récemment. Veuillez attendre encore ${timeRemaining} ${timeFormat} avant de faire une nouvelle demande.`,
+          ephemeral: true
+        });
+      }
+    }
+    
+    // Mettre à jour le timestamp de dernière demande de vérification
+    await orderDB.updateLastVerificationRequest(orderId);
     
     // Mentionner le rôle administrateur pour demander une vérification
     await interaction.channel.send({
