@@ -1,7 +1,7 @@
 // interaction/buttons/adminComplete.js - Gestionnaire pour la clôture de projet par un administrateur
 const { EmbedBuilder } = require('discord.js');
 const { orderDB, coderDB } = require('../../database');
-const { adminRoles, HISTORY_ORDERS_CHANNEL_ID } = require('../../config/config');
+const { adminRoleIds, HISTORY_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
@@ -14,6 +14,10 @@ const { moveChannelToMonthlyCategory } = require('../../utils/channelManager');
  */
 async function handleAdminCompletion(interaction, orderId) {
   try {
+    // Debug logs
+    console.log('Config:', require('../../config/config'));
+    console.log('adminRoleIds:', adminRoleIds);
+    
     const userId = interaction.user.id;
     
     // Récupérer les informations de l'offre depuis Supabase
@@ -27,7 +31,7 @@ async function handleAdminCompletion(interaction, orderId) {
     
     // Vérifier si l'utilisateur est un administrateur
     const isAdmin = interaction.member.roles.cache.some(role => 
-      adminRoles.includes(role.name)
+      adminRoleIds.includes(role.id)
     );
     
     if (!isAdmin) {

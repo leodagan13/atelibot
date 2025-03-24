@@ -15,12 +15,12 @@ const PUBLISH_ORDERS_CHANNEL_ID = '1350504397561397319';
 // Channel for order history
 const HISTORY_ORDERS_CHANNEL_ID = '1350566173044904077';
 
+// Admin role IDs
+const adminRoleIds = ['1350494624342347878', '1351725292741197976'];
+
 // Client and Guild IDs for slash commands
 const clientid = '1350474929266491402';  // lowercase to match database
 const guildid = '1350455133309505558';   // lowercase to match database
-
-// Roles that can create orders
-const adminRoles = ['Admin', 'Moderator', 'Opportunity Curator'];
 
 // Check if prefix commands are enabled
 const enablePrefixCommands = process.env.ENABLE_PREFIX_COMMANDS?.toLowerCase() === 'true';
@@ -30,6 +30,7 @@ module.exports = {
     activeOrderSessions,
     activeCoders,
     adminRoles,
+    adminRoleIds,  // Added adminRoleIds to exports
     prefix: '/',
     enablePrefixCommands,
     maxActiveJobs: 1,
