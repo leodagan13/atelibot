@@ -5,7 +5,8 @@ const {
   ModalBuilder, 
   TextInputBuilder, 
   TextInputStyle,
-  RoleSelectMenuBuilder
+  RoleSelectMenuBuilder,
+  StringSelectMenuBuilder
 } = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
@@ -83,15 +84,25 @@ module.exports = {
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
+        // Ajouter le champ pour le niveau
+        const levelInput = new TextInputBuilder()
+          .setCustomId('level')
+          .setLabel('Niveau (1-6, 6 étant le plus difficile)')
+          .setPlaceholder('1-6')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(1);
+
         // Organisation des champs en lignes
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
         const deadlineRow = new ActionRowBuilder().addComponents(deadlineInput);
+        const levelRow = new ActionRowBuilder().addComponents(levelInput);
 
         // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow);
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow, levelRow);
 
         // Afficher le modal
         await interaction.showModal(modal);

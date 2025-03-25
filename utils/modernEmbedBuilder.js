@@ -70,6 +70,36 @@ const FIELD_ICONS = {
   }
 };
 
+/**
+ * Icônes et noms pour les niveaux de difficulté
+ */
+const LEVEL_ICONS = {
+  1: '🟩', // Facile
+  2: '🟨', // Débutant
+  3: '🟧', // Intermédiaire
+  4: '🟥', // Avancé
+  5: '🔴', // Expert
+  6: '⚫', // Super Expert (niveau 6)
+  
+  // Get icon by level
+  getIcon(level) {
+    return this[level] || this[1];
+  },
+  
+  // Get difficulty name by level
+  getName(level) {
+    const names = {
+      1: 'Facile',
+      2: 'Débutant',
+      3: 'Intermédiaire',
+      4: 'Avancé',
+      5: 'Expert',
+      6: 'Super Expert'
+    };
+    return names[level] || names[1];
+  }
+};
+
 // Cache the logo path to avoid checking each time
 let cachedLogoPath = null;
 
@@ -118,17 +148,31 @@ function createSidebarOrderEmbed(order) {
   logger.debug(`Creating sidebar embed with data: ${JSON.stringify(order)}`);
 
   const embed = new EmbedBuilder()
-    .setColor(config.appearance.accentColor || '#ff3366') // Red sidebar accent
+    .setColor(config.appearance.accentColor || '#ff3366')
     .setTitle(`New Project Opportunity`)
     .setDescription(`Here's a new project that matches your skills. Review the details and click the button below to accept this job.`)
-    .setThumbnail('attachment://logo.png') // Reference to local logo file
+    .setThumbnail('attachment://logo.png')
     .addFields(
       { name: `${FIELD_ICONS.description} Project Description`, value: order.description },
-      { name: '\u200B', value: '――――――――――――――――――――' }, // Divider
+      { name: '\u200B', value: '――――――――――――――――――――' },
       { name: `${FIELD_ICONS.compensation} Compensation`, value: order.compensation, inline: true },
-      { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge(order.status || 'OPEN'), inline: true },
-      { name: `${FIELD_ICONS.orderid} Project ID`, value: `\`${order.orderid}\``, inline: true }
+      { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge(order.status || 'OPEN'), inline: true }
     );
+    
+  // Ajouter le niveau avec l'icône correspondante
+  const level = parseInt(order.level) || 1;
+  embed.addFields({
+    name: `${LEVEL_ICONS.getIcon(level)} Difficulté`,
+    value: `Niveau ${level} - ${LEVEL_ICONS.getName(level)}`,
+    inline: true
+  });
+  
+  // Ajouter l'ID du projet
+  embed.addFields({ 
+    name: `${FIELD_ICONS.orderid} Project ID`, 
+    value: `\`${order.orderid}\``, 
+    inline: true 
+  });
     
   // Add deadline if exists
   logger.debug(`Checking for deadline: ${order.deadline}`);
@@ -207,26 +251,40 @@ function createSidebarOrderEmbed(order) {
  */
 function createPrivateChannelEmbed(order, developerID) {
   const embed = new EmbedBuilder()
-    .setColor(config.appearance.accentColor || '#ff3366') // Red sidebar accent
+    .setColor(config.appearance.accentColor || '#ff3366')
     .setTitle(`Project Channel`)
     .setDescription(`This channel has been created for project collaboration between the administrator and the developer.`)
-    .setThumbnail('attachment://logo.png') // Reference to local logo file
+    .setThumbnail('attachment://logo.png')
     .addFields(
       { name: `${FIELD_ICONS.description} Project Description`, value: order.description },
-      { name: '\u200B', value: '――――――――――――――――――――' }, // Divider
+      { name: '\u200B', value: '――――――――――――――――――――' },
       { name: `${FIELD_ICONS.compensation} Compensation`, value: order.compensation, inline: true },
-      { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge('ASSIGNED'), inline: true },
-      { name: `${FIELD_ICONS.orderid} Project ID`, value: `\`${order.orderid}\``, inline: true },
-      { name: '\u200B', value: '――――――――――――――――――――' }, // Divider
-      { name: `${FIELD_ICONS.admin} Administrator`, value: `<@${order.adminid}>`, inline: true },
-      { name: `${FIELD_ICONS.developer} Developer`, value: `<@${developerID}>`, inline: true },
-      { name: `${FIELD_ICONS.date} Start Date`, value: `<t:${Math.floor(Date.now()/1000)}:D>`, inline: true }
-    )
-    .setFooter({ 
-      text: `Project #${order.orderid}`,
-      iconURL: 'attachment://logo.png'
-    });
+      { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge('ASSIGNED'), inline: true }
+    );
     
+  // Ajouter le niveau avec l'icône correspondante
+  const level = parseInt(order.level) || 1;
+  embed.addFields({
+    name: `${LEVEL_ICONS.getIcon(level)} Difficulté`,
+    value: `Niveau ${level} - ${LEVEL_ICONS.getName(level)}`,
+    inline: true
+  });
+  
+  // Ajouter l'ID du projet
+  embed.addFields({ 
+    name: `${FIELD_ICONS.orderid} Project ID`, 
+    value: `\`${order.orderid}\``, 
+    inline: true 
+  });
+  
+  // Ajouter également les champs pour administrateur, développeur etc.
+  embed.addFields(
+    { name: '\u200B', value: '――――――――――――――――――――' },
+    { name: `${FIELD_ICONS.admin} Administrator`, value: `<@${order.adminid}>`, inline: true },
+    { name: `${FIELD_ICONS.developer} Developer`, value: `<@${developerID}>`, inline: true },
+    { name: `${FIELD_ICONS.date} Start Date`, value: `<t:${Math.floor(Date.now()/1000)}:D>`, inline: true }
+  );
+  
   // Add skills/tags if available
   if (order.tags && order.tags.length > 0) {
     const formattedTags = order.tags.map(tag => `\`${tag}\``).join(' ');
@@ -483,6 +541,7 @@ module.exports = {
   COLORS,
   STATUS_BADGES,
   FIELD_ICONS,
+  LEVEL_ICONS,
   createSidebarOrderEmbed,
   createPrivateChannelEmbed,
   createOrderListEmbed,

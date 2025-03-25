@@ -24,8 +24,9 @@ const orderDB = {
     try {
       console.log("Création d'ordre avec données:", orderData);
       
-      // Log spécifique pour la deadline
+      // Log spécifique pour la deadline et le niveau
       console.log("Deadline reçue:", orderData.data.deadline);
+      console.log("Niveau reçu:", orderData.data.level);
       
       // Process required roles if present
       let requiredRoles = [];
@@ -49,6 +50,12 @@ const orderDB = {
         }
       }
       
+      // Valider le niveau (entre 1 et 6)
+      let level = 1; // Niveau par défaut
+      if (orderData.data.level && !isNaN(parseInt(orderData.data.level))) {
+        level = Math.min(Math.max(parseInt(orderData.data.level), 1), 6);
+      }
+      
       // Utiliser des noms de colonnes corrects selon les screenshots
       const orderToInsert = {
         orderid: orderData.orderId,
@@ -59,9 +66,10 @@ const orderDB = {
         status: 'OPEN',
         createdat: new Date().toISOString(),
         tags: orderData.data.tags || [],
-        required_roles: requiredRoles, // Add required roles
+        required_roles: requiredRoles,
         messageid: null,  // Sera mis à jour après publication
-        deadline: deadlineISO // Utiliser la version ISO convertie
+        deadline: deadlineISO, // Utiliser la version ISO convertie
+        level: level  // Ajouter le niveau
       };
       
       console.log("Données formatées pour insertion:", orderToInsert);
