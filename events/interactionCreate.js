@@ -209,101 +209,92 @@ module.exports = {
         }
       }
       
-      // Handle select menu interactions
-      else if (interaction.isSelectMenu()) {
-        const customId = interaction.customId;
-        
-        try {
-          // Handle order status updates
-          if (customId.startsWith('order_status_')) {
-            const orderId = customId.replace('order_status_', '');
-            await handleOrderStatusUpdate(interaction, orderId);
-          } else {
-            logger.warn(`Unrecognized select menu customId: ${customId}`);
-          }
-        } catch (error) {
-          logger.error(`Error handling select menu interaction (${customId}):`, error);
-          
-          try {
-            if (!interaction.replied && !interaction.deferred) {
-              await interaction.reply({
-                content: 'Une erreur est survenue lors du traitement de cette interaction.',
-                ephemeral: true
-              });
-            } else {
-              await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
-            }
-          } catch (replyError) {
-            logger.error('Error sending error response:', replyError);
-          }
-        }
-      }
-
       // Handler for role selection menu
       else if (interaction.isRoleSelectMenu()) {
-        if (interaction.customId.startsWith('select_roles_')) {
-          const userId = interaction.user.id;
-          const selectedRoleIds = interaction.values;
+        try {
+          // Immédiatement différer la réponse pour éviter le timeout
+          await interaction.deferUpdate();
           
-          // Get the order session
-          const orderSession = client.activeOrders.get(userId);
-          if (!orderSession) {
-            return interaction.update({
-              content: 'Une erreur est survenue: session de création perdue.',
-              components: [],
+          if (interaction.customId.startsWith('select_roles_')) {
+            const userId = interaction.user.id;
+            const selectedRoleIds = interaction.values;
+            
+            // Log pour débogage
+            logger.debug(`Rôles sélectionnés par ${userId}: ${selectedRoleIds.join(', ')}`);
+            
+            // Get the order session
+            const orderSession = client.activeOrders.get(userId);
+            if (!orderSession) {
+              return interaction.editReply({
+                content: 'Une erreur est survenue: session de création perdue.',
+                components: [],
+              });
+            }
+            
+            // Convert selected role IDs to role objects with names
+            const selectedRoles = selectedRoleIds.map(roleId => {
+              const role = interaction.guild.roles.cache.get(roleId);
+              return {
+                id: roleId,
+                name: role ? role.name : 'Unknown Role'
+              };
+            });
+            
+            // Store selected roles in session
+            orderSession.data.requiredRoles = selectedRoles;
+            orderSession.step = 'select_level';
+            
+            // Vérifier si l'utilisateur est un super administrateur
+            const isSuperAdmin = interaction.member.roles.cache.has("1351725292741197976");
+            
+            // Créer la sélection de niveau
+            const levelSelectRow = new ActionRowBuilder()
+              .addComponents(
+                new StringSelectMenuBuilder()
+                  .setCustomId(`select_level_${userId}`)
+                  .setPlaceholder('Sélectionner le niveau de difficulté')
+                  .addOptions([
+                    { label: 'Niveau 1 - Facile', value: '1', emoji: '🟩', description: 'Projet simple pour débutants' },
+                    { label: 'Niveau 2 - Débutant', value: '2', emoji: '🟨', description: 'Quelques connaissances requises' },
+                    { label: 'Niveau 3 - Intermédiaire', value: '3', emoji: '🟧', description: 'Difficulté moyenne' },
+                    { label: 'Niveau 4 - Avancé', value: '4', emoji: '🟥', description: 'Projet complexe' },
+                    { label: 'Niveau 5 - Expert', value: '5', emoji: '🔴', description: 'Expertise requise' },
+                    // Niveau 6 uniquement pour super admin
+                    ...(isSuperAdmin ? [
+                      { label: 'Niveau 6 - Super Expert', value: '6', emoji: '⚫', description: 'Réservé aux projets exceptionnels' }
+                    ] : [])
+                  ])
+              );
+            
+            // Afficher la sélection de niveau
+            await interaction.editReply({
+              content: 'Maintenant, sélectionnez le niveau de difficulté de ce projet:',
+              components: [levelSelectRow]
+            });
+            
+            logger.debug(`Sélection de niveau affichée pour ${userId}`);
+          }
+        } catch (error) {
+          logger.error(`Erreur lors de la sélection de rôles: ${error.message}`, error);
+          try {
+            await interaction.followUp({
+              content: 'Une erreur est survenue lors de la sélection des rôles. Veuillez réessayer.',
               ephemeral: true
             });
+          } catch (followupError) {
+            logger.error("Impossible d'envoyer le message d'erreur", followupError);
           }
-          
-          // Convert selected role IDs to role objects with names
-          const selectedRoles = selectedRoleIds.map(roleId => {
-            const role = interaction.guild.roles.cache.get(roleId);
-            return {
-              id: roleId,
-              name: role ? role.name : 'Unknown Role'
-            };
-          });
-          
-          // Store selected roles in session
-          orderSession.data.requiredRoles = selectedRoles;
-          orderSession.step = 'select_level';
-          
-          // Vérifier si l'utilisateur est un super administrateur
-          const isSuperAdmin = interaction.member.id === "1351725292741197976";
-          
-          // Créer la sélection de niveau
-          const levelSelectRow = new ActionRowBuilder()
-            .addComponents(
-              new StringSelectMenuBuilder()
-                .setCustomId(`select_level_${userId}`)
-                .setPlaceholder('Sélectionner le niveau de difficulté')
-                .addOptions([
-                  { label: 'Niveau 1 - Facile', value: '1', emoji: '🟩', description: 'Projet simple pour débutants' },
-                  { label: 'Niveau 2 - Débutant', value: '2', emoji: '🟨', description: 'Quelques connaissances requises' },
-                  { label: 'Niveau 3 - Intermédiaire', value: '3', emoji: '🟧', description: 'Difficulté moyenne' },
-                  { label: 'Niveau 4 - Avancé', value: '4', emoji: '🟥', description: 'Projet complexe' },
-                  { label: 'Niveau 5 - Expert', value: '5', emoji: '🔴', description: 'Expertise requise' },
-                  // Niveau 6 uniquement pour super admin
-                  ...(isSuperAdmin ? [
-                    { label: 'Niveau 6 - Super Expert', value: '6', emoji: '⚫', description: 'Réservé aux projets exceptionnels' }
-                  ] : [])
-                ])
-            );
-          
-          // Afficher la sélection de niveau
-          await interaction.update({
-            content: 'Maintenant, sélectionnez le niveau de difficulté de ce projet:',
-            components: [levelSelectRow],
-            ephemeral: true
-          });
         }
       }
 
       // Handle string select menu interactions
       else if (interaction.isStringSelectMenu()) {
-        const customId = interaction.customId;
-        
         try {
+          const customId = interaction.customId;
+          
+          // Immédiatement différer la réponse pour éviter le timeout
+          await interaction.deferUpdate();
+          
           // Handle order status updates
           if (customId.startsWith('order_status_')) {
             const orderId = customId.replace('order_status_', '');
@@ -314,22 +305,22 @@ module.exports = {
             const userId = customId.replace('select_level_', '');
             const selectedLevel = interaction.values[0];
             
+            logger.debug(`Niveau sélectionné par ${userId}: ${selectedLevel}`);
+            
             // Get the order session
             const orderSession = client.activeOrders.get(userId);
             if (!orderSession) {
-              return interaction.update({
+              return interaction.editReply({
                 content: 'Une erreur est survenue: session de création perdue.',
-                components: [],
-                ephemeral: true
+                components: []
               });
             }
             
             // Valider que le niveau 6 est sélectionné uniquement par un super admin
-            if (selectedLevel === '6' && interaction.user.id !== "1351725292741197976") {
-              return interaction.update({
+            if (selectedLevel === '6' && !interaction.member.roles.cache.has("1351725292741197976")) {
+              return interaction.editReply({
                 content: "⚠️ Seul un super administrateur peut créer un projet de niveau 6. Veuillez sélectionner un niveau entre 1 et 5.",
-                components: [interaction.message.components[0]],
-                ephemeral: true
+                components: [interaction.message.components[0]]
               });
             }
             
@@ -340,6 +331,8 @@ module.exports = {
             // Generate a unique ID for this order
             const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
             orderSession.orderId = uniqueOrderId;
+            
+            logger.debug(`Génération de l'ID unique: ${uniqueOrderId}`);
             
             // Create order data for preview
             const orderData = {
@@ -374,30 +367,27 @@ module.exports = {
             const logoAttachment = getLogoAttachment();
             
             // Show preview with confirmation buttons
-            await interaction.update({
+            await interaction.editReply({
               content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
               embeds: [embed],
               components: [actionRow],
-              files: [logoAttachment],
-              ephemeral: true
+              files: [logoAttachment]
             });
+            
+            logger.debug(`Aperçu de l'offre généré pour ${userId}`);
           } else {
             logger.warn(`Unrecognized string select menu customId: ${customId}`);
           }
         } catch (error) {
-          logger.error(`Error handling string select menu interaction (${customId}):`, error);
+          logger.error(`Error handling string select menu interaction: ${error.message}`, error);
           
           try {
-            if (!interaction.replied && !interaction.deferred) {
-              await interaction.reply({
-                content: 'Une erreur est survenue lors du traitement de cette interaction.',
-                ephemeral: true
-              });
-            } else {
-              await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
-            }
+            await interaction.followUp({
+              content: 'Une erreur est survenue lors du traitement de cette interaction. Veuillez réessayer.',
+              ephemeral: true
+            });
           } catch (replyError) {
-            logger.error('Error sending error response:', replyError);
+            logger.error("Impossible d'envoyer le message d'erreur", replyError);
           }
         }
       }
