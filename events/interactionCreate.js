@@ -1,14 +1,14 @@
-// events/interactionCreate.js - Handler for interactions with Modal support
+// events/interactionCreate.js - Updated to support level-based channel publishing
 
 const { handleOrderAcceptance } = require('../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../interaction/buttons/completeOrder');
 const { handleOrderStatusUpdate } = require('../interaction/selectMenus/orderStatus');
-const { publishOrder, cancelOrder } = require('../interaction/buttons/orderCreation');
+const { publishModalOrder, getPublishChannelId } = require('../interaction/buttons/orderCreation');
 const { handleVerificationRequest } = require('../interaction/buttons/requestVerification');
 const { handleAdminCompletion } = require('../interaction/buttons/adminComplete');
 const logger = require('../utils/logger');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
-const { PUBLISH_ORDERS_CHANNEL_ID } = require('../config/config');
+const { PUBLISH_ORDERS_CHANNEL_ID, LEVEL_CHANNELS } = require('../config/config');
 const { orderDB } = require('../database');
 const { createSidebarOrderEmbed, createNotification, getLogoAttachment } = require('../utils/modernEmbedBuilder');
 const { appearance } = require('../config/config');
@@ -176,7 +176,6 @@ module.exports = {
           else if (customId.startsWith('confirm_order_')) {
             // Cette partie est désormais gérée par le collector dans orderCreation.js
             // On ne fait rien ici, pour éviter une double manipulation
-            
           }
           
           // Annulation d'ordre - ancienne méthode
@@ -348,6 +347,11 @@ module.exports = {
               level: orderSession.data.level
             };
             
+            // Get the appropriate channel name for this level to show in preview
+            const levelChannelId = getPublishChannelId(parseInt(selectedLevel), client);
+            const levelChannel = client.channels.cache.get(levelChannelId);
+            const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
+            
             // Create preview embed
             const { embed, row } = createSidebarOrderEmbed(orderData);
             
@@ -368,7 +372,7 @@ module.exports = {
             
             // Show preview with confirmation buttons
             await interaction.editReply({
-              content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
+              content: `Voici un aperçu de votre offre de niveau ${selectedLevel}. Elle sera publiée dans le canal #${channelName}. Vérifiez les détails puis cliquez sur "Publier l'offre" pour confirmer:`,
               embeds: [embed],
               components: [actionRow],
               files: [logoAttachment]
@@ -526,6 +530,11 @@ async function handleOrderModalSubmit(interaction, client) {
       level: level
     };
     
+    // Get the appropriate channel name for this level to show in preview
+    const levelChannelId = getPublishChannelId(level, client);
+    const levelChannel = client.channels.cache.get(levelChannelId);
+    const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
+    
     // Create embed for preview
     const { embed, row } = createSidebarOrderEmbed(orderData);
     const logoAttachment = getLogoAttachment();
@@ -547,7 +556,7 @@ async function handleOrderModalSubmit(interaction, client) {
     
     // Send preview with buttons
     await interaction.editReply({
-      content: 'Voici un aperçu de votre offre. Vérifiez les détails et confirmez la publication.',
+      content: `Voici un aperçu de votre offre de niveau ${level}. Elle sera publiée dans le canal #${channelName}. Vérifiez les détails et confirmez la publication.`,
       embeds: [embed],
       components: [row],
       files: [logoAttachment]
@@ -561,106 +570,6 @@ async function handleOrderModalSubmit(interaction, client) {
         ephemeral: true
       });
     }
-  }
-}
-
-/**
- * Publie l'offre créée via modal
- * @param {Object} interaction - Interaction Discord (button)
- * @param {String} orderId - ID de l'offre
- * @param {Object} client - Client Discord
- */
-async function publishModalOrder(interaction, orderId, client) {
-  try {
-    const orderSession = client.activeOrders.get(interaction.user.id);
-    if (!orderSession) {
-      return interaction.reply({
-        content: 'Session de création d\'offre expirée ou invalide.',
-        ephemeral: true
-      });
-    }
-    
-    // Dernière vérification de sécurité pour le niveau 6
-    if (orderSession.data.level === 6 && interaction.user.id !== "1351725292741197976") {
-      orderSession.data.level = 5; // Limiter à 5 si ce n'est pas un super admin
-      await interaction.channel.send({
-        content: "⚠️ Le niveau a été ajusté à 5 car seul un super administrateur peut créer un projet de niveau 6.",
-        ephemeral: true
-      });
-    }
-    
-    // Prepare data for database
-    const orderData = {
-      orderId: orderId,
-      adminId: interaction.user.id,
-      data: {
-        clientName: orderSession.data.clientName,
-        compensation: orderSession.data.compensation,
-        description: orderSession.data.description,
-        tags: orderSession.data.tags || [],
-        requiredRoles: orderSession.data.requiredRoles || [],
-        deadline: orderSession.data.deadline,
-        level: orderSession.data.level || 1 // Assurer qu'il y a toujours un niveau
-      }
-    };
-    
-    // Create the order in database
-    await orderDB.create(orderData);
-    
-    // Create display data for embed
-    const displayOrderData = {
-      orderid: orderId,
-      description: orderSession.data.description,
-      compensation: orderSession.data.compensation,
-      tags: orderSession.data.tags || [],
-      requiredRoles: orderSession.data.requiredRoles || [],
-      adminName: interaction.user.tag,
-      adminid: interaction.user.id,
-      deadline: orderSession.data.deadline,
-      level: orderSession.data.level || 1,
-      status: 'OPEN'
-    };
-    
-    // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(displayOrderData);
-    const logoAttachment = getLogoAttachment();
-    
-    // Get the publish channel
-    const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
-    if (!publishChannel) {
-      logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
-      return interaction.reply({
-        content: 'Erreur: Canal de publication introuvable.',
-        ephemeral: true
-      });
-    }
-    
-    // Publish the order
-    const publishedMessage = await publishChannel.send({
-      content: '**📢 Nouvelle opportunité de travail disponible!**',
-      embeds: [embed],
-      components: [row],
-      files: [logoAttachment]
-    });
-    
-    // Update the order with the message ID
-    await orderDB.updateMessageId(orderId, publishedMessage.id);
-    
-    // Clear the active order
-    client.activeOrders.delete(interaction.user.id);
-    
-    // Notify success
-    return interaction.reply({
-      content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
-      ephemeral: true
-    });
-    
-  } catch (error) {
-    logger.error('Error publishing modal order:', error);
-    return interaction.reply({
-      content: 'Une erreur est survenue lors de la publication de l\'offre.',
-      ephemeral: true
-    });
   }
 }
 

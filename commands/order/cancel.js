@@ -1,6 +1,6 @@
-// commands/order/cancel.js - Fixed version with slash command support
+// commands/order/cancel.js - Updated to support level-based channels
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { adminRoles } = require('../../config/config');
+const { adminRoles, LEVEL_CHANNELS } = require('../../config/config');
 const { orderDB, coderDB } = require('../../database');
 const logger = require('../../utils/logger');
 const { createNotification, updateChannelEmbedWithLogo, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
@@ -67,30 +67,38 @@ module.exports = {
       // Update order status
       await orderDB.updateStatus(orderid, 'CANCELLED');
       
-      // Supprimer le message dans le canal de publication
+      // Supprimer le message dans le canal de publication approprié
       const newStatus = 'CANCELLED';
       if (newStatus === 'CANCELLED') {
         try {
-          const publishChannelId = require('../../config/config').PUBLISH_ORDERS_CHANNEL_ID;
-          const publishChannel = isSlash ? interaction.guild.channels.cache.get(publishChannelId) : interaction.guild.channels.cache.get(publishChannelId);
+          // Determine which channel the order was published to
+          const level = order.level || 1;
+          const publishChannelId = LEVEL_CHANNELS[level] || LEVEL_CHANNELS[1];
+          
+          const publishChannel = isSlash ? 
+            interaction.guild.channels.cache.get(publishChannelId) : 
+            interaction.guild.channels.cache.get(publishChannelId);
           
           if (publishChannel && order.messageid) {
             try {
               const orderMessage = await publishChannel.messages.fetch(order.messageid);
               if (orderMessage) {
                 await orderMessage.delete();
-                logger.info(`Deleted message ${order.messageid} for cancelled order ${orderid}`);
+                logger.info(`Deleted message ${order.messageid} for cancelled order ${orderid} from level ${level} channel`);
               }
             } catch (fetchError) {
               logger.error(`Failed to fetch message ${order.messageid} for order ${orderid}:`, fetchError);
             }
           } else {
-            // Méthode alternative - rechercher le message par contenu
+            // Alternative method - search for the message by content in all level channels
             try {
-              const publishChannel = client.channels.cache.get(publishChannelId);
-              if (publishChannel) {
-                // Fetch recent messages in the publish channel
-                const messages = await publishChannel.messages.fetch({ limit: 50 });
+              // Look in all possible level channels
+              for (const [levelKey, channelId] of Object.entries(LEVEL_CHANNELS)) {
+                const channel = client.channels.cache.get(channelId);
+                if (!channel) continue;
+                
+                // Fetch recent messages in the channel
+                const messages = await channel.messages.fetch({ limit: 50 });
                 
                 // Find the message that contains the order ID
                 const orderMessage = messages.find(m => 
@@ -102,13 +110,12 @@ module.exports = {
                 if (orderMessage) {
                   // Delete the message
                   await orderMessage.delete();
-                  logger.info(`Deleted message for cancelled order ${orderid} from publish channel (using content search)`);
-                } else {
-                  logger.warn(`Could not find message for cancelled order ${orderid} in publish channel`);
+                  logger.info(`Deleted message for cancelled order ${orderid} from level ${levelKey} channel (using content search)`);
+                  break; // Exit the loop after finding and deleting the message
                 }
               }
             } catch (searchErr) {
-              logger.error(`Failed to search for message in publish channel for order ${orderid}:`, searchErr);
+              logger.error(`Failed to search for message in publish channels for order ${orderid}:`, searchErr);
             }
           }
         } catch (err) {

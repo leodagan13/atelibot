@@ -1,7 +1,8 @@
-// interaction/buttons/orderCreation.js - Handle the order creation flow
+// interaction/buttons/orderCreation.js - Updated to support level-based channel publishing
+
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
-const { PUBLISH_ORDERS_CHANNEL_ID } = require('../../config/config');
+const { PUBLISH_ORDERS_CHANNEL_ID, LEVEL_CHANNELS } = require('../../config/config');
 const logger = require('../../utils/logger');
 const { createSidebarOrderEmbed, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
@@ -9,6 +10,29 @@ const path = require('path');
 
 // Stockage temporaire des commandes en cours de confirmation
 const pendingConfirmations = new Map();
+
+/**
+ * Get the appropriate channel ID for an order based on its level
+ * @param {number} level - Order difficulty level (1-6)
+ * @param {Object} client - Discord client
+ * @returns {string} - Channel ID to publish to
+ */
+function getPublishChannelId(level, client) {
+  // Default to the main publish channel if no level is provided
+  if (!level) return PUBLISH_ORDERS_CHANNEL_ID;
+  
+  // Get the channel ID from the mapping
+  const channelId = LEVEL_CHANNELS[level] || PUBLISH_ORDERS_CHANNEL_ID;
+  
+  // Verify the channel exists
+  const channel = client.channels.cache.get(channelId);
+  if (!channel) {
+    logger.warn(`Channel for level ${level} (ID: ${channelId}) not found. Using default channel.`);
+    return PUBLISH_ORDERS_CHANNEL_ID;
+  }
+  
+  return channelId;
+}
 
 /**
  * Process input for an active order creation session
@@ -72,7 +96,8 @@ async function showOrderSummary(message, orderSession, client) {
       description: orderSession.data.description,
       compensation: orderSession.data.compensation,
       tags: orderSession.data.tags || [],
-      adminName: message.author.tag
+      adminName: message.author.tag,
+      level: orderSession.data.level || 1 // Default to level 1 if not set
     };
     
     // Create embed with order summary
@@ -213,7 +238,8 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       adminId: orderData.adminId,
       clientName: orderData.data.clientName,
       compensation: orderData.data.compensation,
-      description: orderData.data.description
+      description: orderData.data.description,
+      level: orderData.data.level || 1
     });
     
     // Tente de créer l'ordre
@@ -229,25 +255,38 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     }
     
     // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(orderData);
+    const { embed, row } = createSidebarOrderEmbed({
+      ...orderData,
+      orderid: uniqueOrderId,
+      description: orderData.data.description,
+      compensation: orderData.data.compensation,
+      tags: orderData.data.tags || [],
+      adminName: interaction.user.tag,
+      level: orderData.data.level || 1
+    });
+    
+    const logoAttachment = getLogoAttachment();
     
     logger.debug(`Publishing order with data: ${JSON.stringify(orderData)}`);
 
-    // Get the publish channel
-    const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
+    // Get the appropriate publish channel based on level
+    const level = orderData.data.level || 1;
+    const publishChannelId = getPublishChannelId(level, client);
+    const publishChannel = client.channels.cache.get(publishChannelId);
     
     if (!publishChannel) {
-      logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
-      await channel.send('Erreur: Canal de publication introuvable.');
+      logger.error(`Publish channel for level ${level} not found:`, publishChannelId);
+      await channel.send(`Erreur: Canal de publication pour le niveau ${level} introuvable.`);
       return;
     }
     
     // Publish the order
     try {
       const publishedMessage = await publishChannel.send({
-        content: '**📢 Nouvelle opportunité de travail disponible!**',
+        content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
         embeds: [embed],
-        components: [row]
+        components: [row],
+        files: [logoAttachment]
       });
       
       // Update the order with the message ID
@@ -261,8 +300,8 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     // Clear the active order
     client.activeOrders.delete(userId);
     
-    // Notify success
-    await channel.send(`✅ Offre #${uniqueOrderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`);
+    // Notify success with specific channel mention
+    await channel.send(`✅ Offre #${uniqueOrderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`);
     
   } catch (error) {
     logger.error('Error processing order confirmation:', error);
@@ -294,113 +333,12 @@ async function processOrderCancellation(interaction, confirmationData, client) {
   }
 }
 
-// Cette fonction est gardée pour la compatibilité avec le code existant
-async function publishOrder(interaction, orderSession, client) {
-  try {
-    // Pour éviter l'erreur d'interaction inconnue, déférer la mise à jour immédiatement
-    try {
-      await interaction.deferUpdate();
-    } catch (deferError) {
-      logger.error('Error deferring interaction update:', deferError);
-      // Si nous ne pouvons pas différer, l'interaction pourrait être expirée
-      // Continuer avec le canal normal pour envoyer des messages
-    }
-    
-    const channel = interaction.channel;
-    const userId = interaction.user.id;
-    
-    // Générer un nouvel ID unique
-    const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
-    
-    // Create the order data structure for the embed
-    const orderData = {
-      orderid: uniqueOrderId,
-      description: orderSession.data.description,
-      compensation: orderSession.data.compensation,
-      tags: orderSession.data.tags || [],
-      adminName: interaction.user.tag,
-      adminid: interaction.user.id,
-      deadline: orderSession.data.deadline || null,
-      status: 'OPEN'
-    };
-    
-    // Create embed for the order
-    const { embed, row } = createSidebarOrderEmbed(orderData);
-    const logoAttachment = getLogoAttachment();
-    
-    logger.debug(`Publishing order with data: ${JSON.stringify(orderData)}`);
-
-    // Get the publish channel
-    const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
-    
-    if (!publishChannel) {
-      logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
-      await channel.send('Erreur: Canal de publication introuvable.');
-      return;
-    }
-    
-    // Publish the order
-    try {
-      const publishedMessage = await publishChannel.send({
-        content: '**📢 Nouvelle opportunité de travail disponible!**',
-        embeds: [embed],
-        components: [row],
-      });
-      
-      // Update the order with the message ID
-      await orderDB.updateMessageId(uniqueOrderId, publishedMessage.id);
-    } catch (publishError) {
-      logger.error('Error publishing order to channel:', publishError);
-      await channel.send('Une erreur est survenue lors de la publication de l\'offre dans le canal.');
-      return;
-    }
-    
-    // Clear the active order
-    client.activeOrders.delete(userId);
-    
-    // Notify success
-    await channel.send(`✅ Offre #${uniqueOrderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`);
-    
-  } catch (error) {
-    logger.error('Error publishing order:', error);
-    
-    try {
-      // L'interaction pourrait être expirée, donc utiliser le canal directement
-      const channel = interaction.channel;
-      await channel.send(`Une erreur est survenue lors de la publication de l'offre: ${error.message}`);
-    } catch (replyError) {
-      logger.error('Failed to respond with error message:', replyError);
-    }
-  }
-}
-
-// Cette fonction est gardée pour la compatibilité avec le code existant
-async function cancelOrder(interaction, client) {
-  try {
-    // Pour éviter l'erreur d'interaction inconnue, déférer la mise à jour immédiatement
-    try {
-      await interaction.deferUpdate();
-    } catch (deferError) {
-      logger.error('Error deferring interaction update:', deferError);
-      // Si nous ne pouvons pas différer, l'interaction pourrait être expirée
-    }
-    
-    // Clear the active order
-    client.activeOrders.delete(interaction.user.id);
-    
-    // Notify cancellation
-    await interaction.channel.send('❌ Création d\'offre annulée.');
-    
-  } catch (error) {
-    logger.error('Error cancelling order:', error);
-    try {
-      await interaction.channel.send('Une erreur est survenue lors de l\'annulation de l\'offre.');
-    } catch (sendError) {
-      logger.error('Failed to send error message:', sendError);
-    }
-  }
-}
-
+/**
+ * Publie l'offre créée via modal
+ * @param {Object} interaction - Interaction Discord (button)
+ * @param {String} orderId - ID de l'offre
+ * @param {Object} client - Client Discord
+ */
 async function publishModalOrder(interaction, orderId, client) {
   try {
     const orderSession = client.activeOrders.get(interaction.user.id);
@@ -421,26 +359,30 @@ async function publishModalOrder(interaction, orderId, client) {
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
       deadline: orderSession.data.deadline || null,
-      status: 'OPEN'
+      status: 'OPEN',
+      level: orderSession.data.level || 1
     };
 
     // Create embed for the order
     const { embed, row } = createSidebarOrderEmbed(displayOrderData);
     const logoAttachment = getLogoAttachment();
 
-    // Get the publish channel
-    const publishChannel = client.channels.cache.get(PUBLISH_ORDERS_CHANNEL_ID);
+    // Get the appropriate publish channel based on level
+    const level = orderSession.data.level || 1;
+    const publishChannelId = getPublishChannelId(level, client);
+    
+    const publishChannel = client.channels.cache.get(publishChannelId);
     if (!publishChannel) {
-      logger.error('Publish channel not found:', PUBLISH_ORDERS_CHANNEL_ID);
+      logger.error(`Publish channel for level ${level} not found:`, publishChannelId);
       return interaction.reply({
-        content: 'Erreur: Canal de publication introuvable.',
+        content: `Erreur: Canal de publication pour le niveau ${level} introuvable.`,
         ephemeral: true
       });
     }
 
     // Publish the order
     const publishedMessage = await publishChannel.send({
-      content: '**📢 Nouvelle opportunité de travail disponible!**',
+      content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
       embeds: [embed],
       components: [row],
       files: [logoAttachment]
@@ -452,9 +394,9 @@ async function publishModalOrder(interaction, orderId, client) {
     // Clear the active order
     client.activeOrders.delete(interaction.user.id);
 
-    // Notify success
+    // Notify success with specific channel mention
     return interaction.reply({
-      content: `✅ Offre #${orderId} publiée avec succès dans <#${PUBLISH_ORDERS_CHANNEL_ID}>.`,
+      content: `✅ Offre #${orderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`,
       ephemeral: true
     });
 
@@ -469,7 +411,9 @@ async function publishModalOrder(interaction, orderId, client) {
 
 module.exports = {
   processOrderInput,
-  publishOrder,
-  cancelOrder,
-  publishModalOrder
+  publishModalOrder,
+  processOrderCancellation,
+  publishOrder: publishModalOrder, // For compatibility with existing code
+  cancelOrder: processOrderCancellation, // For compatibility with existing code
+  getPublishChannelId // Expose the function for use elsewhere
 };
