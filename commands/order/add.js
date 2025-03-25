@@ -40,7 +40,7 @@ module.exports = {
           channelId: interaction.channelId
         });
         
-        // Afficher d'abord un modal pour les détails principaux
+        // Créer le modal
         const modal = new ModalBuilder()
           .setCustomId(`create_order_details_${userId}`)
           .setTitle('Nouvelle offre de travail');
@@ -48,7 +48,7 @@ module.exports = {
         // Ajout des champs du formulaire
         const clientNameInput = new TextInputBuilder()
           .setCustomId('clientName')
-          .setLabel('Nom du client (confidentiel pour les codeurs)')
+          .setLabel('Nom du client (confidentiel)')
           .setPlaceholder('Entrez le nom du client')
           .setRequired(true)
           .setStyle(TextInputStyle.Short);
@@ -76,33 +76,23 @@ module.exports = {
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
-        // Ajouter le champ pour la deadline
+        // Combiner deadline et niveau dans un seul champ
         const deadlineInput = new TextInputBuilder()
           .setCustomId('deadline')
           .setLabel('Deadline (YYYY-MM-DD)')
-          .setPlaceholder('Ex: 2025-04-15 pour le 15 avril 2025')
+          .setPlaceholder('Ex: 2025-04-15')
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
-        // Ajouter le champ pour le niveau
-        const levelInput = new TextInputBuilder()
-          .setCustomId('level')
-          .setLabel('Niveau (1-6, 6 étant le plus difficile)')
-          .setPlaceholder('1-6')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short)
-          .setMaxLength(1);
-
-        // Organisation des champs en lignes
+        // Organisation des champs en lignes (maximum 5)
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
         const deadlineRow = new ActionRowBuilder().addComponents(deadlineInput);
-        const levelRow = new ActionRowBuilder().addComponents(levelInput);
 
-        // Ajout des lignes au modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow, levelRow);
+        // Ajout des lignes au modal (5 maximum)
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow);
 
         // Afficher le modal
         await interaction.showModal(modal);

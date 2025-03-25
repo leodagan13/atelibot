@@ -299,86 +299,106 @@ module.exports = {
         }
       }
 
-      // Handler for level selection
+      // Handle string select menu interactions
       else if (interaction.isStringSelectMenu()) {
-        if (interaction.customId.startsWith('select_level_')) {
-          const userId = interaction.user.id;
-          const selectedLevel = interaction.values[0];
-          
-          // Get the order session
-          const orderSession = client.activeOrders.get(userId);
-          if (!orderSession) {
-            return interaction.update({
-              content: 'Une erreur est survenue: session de création perdue.',
-              components: [],
+        const customId = interaction.customId;
+        
+        try {
+          // Handle order status updates
+          if (customId.startsWith('order_status_')) {
+            const orderId = customId.replace('order_status_', '');
+            await handleOrderStatusUpdate(interaction, orderId);
+          } 
+          // Handle level selection
+          else if (customId.startsWith('select_level_')) {
+            const userId = customId.replace('select_level_', '');
+            const selectedLevel = interaction.values[0];
+            
+            // Get the order session
+            const orderSession = client.activeOrders.get(userId);
+            if (!orderSession) {
+              return interaction.update({
+                content: 'Une erreur est survenue: session de création perdue.',
+                components: [],
+                ephemeral: true
+              });
+            }
+            
+            // Valider que le niveau 6 est sélectionné uniquement par un super admin
+            if (selectedLevel === '6' && interaction.user.id !== "1351725292741197976") {
+              return interaction.update({
+                content: "⚠️ Seul un super administrateur peut créer un projet de niveau 6. Veuillez sélectionner un niveau entre 1 et 5.",
+                components: [interaction.message.components[0]],
+                ephemeral: true
+              });
+            }
+            
+            // Store selected level in session
+            orderSession.data.level = parseInt(selectedLevel);
+            orderSession.step = 'preview';
+            
+            // Generate a unique ID for this order
+            const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
+            orderSession.orderId = uniqueOrderId;
+            
+            // Create order data for preview
+            const orderData = {
+              orderid: uniqueOrderId,
+              description: orderSession.data.description,
+              compensation: orderSession.data.compensation,
+              tags: orderSession.data.tags || [],
+              requiredRoles: orderSession.data.requiredRoles || [],
+              adminName: interaction.user.tag,
+              adminid: interaction.user.id,
+              clientName: orderSession.data.clientName,
+              deadline: orderSession.data.deadline,
+              level: orderSession.data.level
+            };
+            
+            // Create preview embed
+            const { embed, row } = createSidebarOrderEmbed(orderData);
+            
+            // Create confirmation buttons
+            const actionRow = new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`confirm_modal_order_${uniqueOrderId}`)
+                  .setLabel('Publier l\'offre')
+                  .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                  .setCustomId(`cancel_modal_order_${uniqueOrderId}`)
+                  .setLabel('Annuler')
+                  .setStyle(ButtonStyle.Danger)
+              );
+            
+            const logoAttachment = getLogoAttachment();
+            
+            // Show preview with confirmation buttons
+            await interaction.update({
+              content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
+              embeds: [embed],
+              components: [actionRow],
+              files: [logoAttachment],
               ephemeral: true
             });
+          } else {
+            logger.warn(`Unrecognized string select menu customId: ${customId}`);
           }
+        } catch (error) {
+          logger.error(`Error handling string select menu interaction (${customId}):`, error);
           
-          // Valider que le niveau 6 est sélectionné uniquement par un super admin
-          if (selectedLevel === '6' && interaction.member.id !== "1351725292741197976") {
-            return interaction.update({
-              content: "⚠️ Seul un super administrateur peut créer un projet de niveau 6. Veuillez sélectionner un niveau entre 1 et 5.",
-              components: [interaction.message.components[0]],
-              ephemeral: true
-            });
+          try {
+            if (!interaction.replied && !interaction.deferred) {
+              await interaction.reply({
+                content: 'Une erreur est survenue lors du traitement de cette interaction.',
+                ephemeral: true
+              });
+            } else {
+              await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
+            }
+          } catch (replyError) {
+            logger.error('Error sending error response:', replyError);
           }
-          
-          // Store selected level in session
-          orderSession.data.level = parseInt(selectedLevel);
-          orderSession.step = 'preview';
-          
-          // Generate a unique ID for this order
-          const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
-          orderSession.orderId = uniqueOrderId;
-          
-          // Create order data for preview
-          const orderData = {
-            orderid: uniqueOrderId,
-            description: orderSession.data.description,
-            compensation: orderSession.data.compensation,
-            tags: orderSession.data.tags || [],
-            requiredRoles: orderSession.data.requiredRoles || [],
-            adminName: interaction.user.tag,
-            adminid: interaction.user.id,
-            clientName: orderSession.data.clientName,
-            deadline: orderSession.data.deadline,
-            level: orderSession.data.level
-          };
-          
-          // Create preview embed
-          const { embed, row } = createSidebarOrderEmbed(orderData);
-          
-          // Create confirmation buttons
-          const actionRow = new ActionRowBuilder()
-            .addComponents(
-              new ButtonBuilder()
-                .setCustomId(`confirm_modal_order_${uniqueOrderId}`)
-                .setLabel('Publier l\'offre')
-                .setStyle(ButtonStyle.Success),
-              new ButtonBuilder()
-                .setCustomId(`cancel_modal_order_${uniqueOrderId}`)
-                .setLabel('Annuler')
-                .setStyle(ButtonStyle.Danger)
-            );
-          
-          const logoAttachment = getLogoAttachment();
-          
-          // Show preview with confirmation buttons
-          await interaction.update({
-            content: 'Voici un aperçu de votre offre. Vérifiez les détails puis cliquez sur "Publier l\'offre" pour confirmer:',
-            embeds: [embed],
-            components: [actionRow],
-            files: [logoAttachment],
-            ephemeral: true
-          });
-        }
-        // Handle other select menus (like order_status_)
-        else if (interaction.customId.startsWith('order_status_')) {
-          const orderId = interaction.customId.replace('order_status_', '');
-          await handleOrderStatusUpdate(interaction, orderId);
-        } else {
-          logger.warn(`Unrecognized select menu customId: ${interaction.customId}`);
         }
       }
     } catch (error) {
