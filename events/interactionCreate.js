@@ -6,6 +6,7 @@ const { handleOrderStatusUpdate } = require('../interaction/selectMenus/orderSta
 const { publishModalOrder, getPublishChannelId } = require('../interaction/buttons/orderCreation');
 const { handleVerificationRequest } = require('../interaction/buttons/requestVerification');
 const { handleAdminCompletion } = require('../interaction/buttons/adminComplete');
+const { handleRatingVote } = require('../interaction/ratings/projectRating');
 const logger = require('../utils/logger');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { PUBLISH_ORDERS_CHANNEL_ID, LEVEL_CHANNELS } = require('../config/config');

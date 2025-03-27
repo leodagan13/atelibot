@@ -341,11 +341,16 @@ async function processOrderCancellation(interaction, confirmationData, client) {
  */
 async function publishModalOrder(interaction, orderId, client) {
   try {
+    // Différer immédiatement la mise à jour pour éviter l'expiration
+    await interaction.deferUpdate();
+    
     const orderSession = client.activeOrders.get(interaction.user.id);
     if (!orderSession) {
-      return interaction.reply({
+      return interaction.editReply({
         content: 'Session de création d\'offre expirée ou invalide.',
-        ephemeral: true
+        embeds: [],
+        components: [],
+        files: []
       });
     }
 
@@ -374,9 +379,11 @@ async function publishModalOrder(interaction, orderId, client) {
     const publishChannel = client.channels.cache.get(publishChannelId);
     if (!publishChannel) {
       logger.error(`Publish channel for level ${level} not found:`, publishChannelId);
-      return interaction.reply({
+      return interaction.editReply({
         content: `Erreur: Canal de publication pour le niveau ${level} introuvable.`,
-        ephemeral: true
+        embeds: [],
+        components: [],
+        files: []
       });
     }
 
@@ -394,17 +401,22 @@ async function publishModalOrder(interaction, orderId, client) {
     // Clear the active order
     client.activeOrders.delete(interaction.user.id);
 
-    // Notify success with specific channel mention
-    return interaction.reply({
+    // Mettre à jour l'interaction originale à la fin (au lieu de reply)
+    return interaction.editReply({
       content: `✅ Offre #${orderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`,
-      ephemeral: true
+      embeds: [],
+      components: [],
+      files: []
     });
 
   } catch (error) {
     logger.error('Error publishing modal order:', error);
-    return interaction.reply({
+    // En cas d'erreur, également utiliser editReply
+    return interaction.editReply({
       content: 'Une erreur est survenue lors de la publication de l\'offre.',
-      ephemeral: true
+      embeds: [],
+      components: [],
+      files: []
     });
   }
 }

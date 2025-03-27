@@ -6,6 +6,7 @@ const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 const { moveChannelToMonthlyCategory } = require('../../utils/channelManager');
+const { handleRatingVote } = require('../interaction/projectRating');
 
 /**
  * Gère la complétion d'une offre par un codeur ou un administrateur
