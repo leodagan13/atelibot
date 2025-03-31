@@ -1,4 +1,4 @@
-// database/xpSystem.js
+// database/xpSystem.js - Implémentation fonctionnelle
 const supabase = require('./supabase');
 const logger = require('../utils/logger');
 
@@ -27,54 +27,220 @@ const XP_REWARDS = {
 };
 
 /**
- * Rates a project and awards XP to the developer
- * @param {String} developerId - Discord ID of the developer
- * @param {String} projectId - Project ID
- * @param {String} adminId - Discord ID of the admin who rated
- * @param {Number} projectLevel - Level of the project (1-6)
- * @param {Number} rating - Rating given (0-5)
- * @returns {Object} - Result with status and XP information
+ * Évaluer un projet et attribuer de l'XP au développeur
+ * @param {String} developerId - ID Discord du développeur
+ * @param {String} projectId - ID du projet
+ * @param {String} adminId - ID Discord de l'administrateur qui a évalué
+ * @param {Number} projectLevel - Niveau du projet (1-6)
+ * @param {Number} rating - Note donnée (0-5)
+ * @returns {Object} - Résultat avec statut et informations XP
  */
 async function rateProject(developerId, projectId, adminId, projectLevel, rating) {
-    try {
-        logger.info(`Rating project ${projectId} by developer ${developerId} with ${rating} stars`);
-        
-        // Default response with placeholder data
-        // In a real implementation, this would interact with the database
-        const result = {
-            status: 'SUCCESS',
-            xpEarned: calculateXP(projectLevel, rating),
-            newLevel: 1,
-            totalXP: 100,
-            progressPercentage: 50,
-            nextLevelXP: 200
-        };
-        
-        // If rating is 0 (failed), special handling
-        if (rating === 0) {
-            result.status = 'LEVEL_DOWN';
-            result.xpEarned = 0;
-        }
-        
-        // If XP would push to next level
-        if (rating >= 4) {
-            result.status = 'LEVEL_UP';
-            result.newLevel = 2;
-        }
-        
-        logger.info(`XP result for ${developerId}: ${JSON.stringify(result)}`);
-        return result;
-    } catch (error) {
-        logger.error(`Error rating project:`, error);
-        // Return a basic response to avoid breaking the UI
-        return {
-            status: 'ERROR',
-            xpEarned: 0,
-            newLevel: 1,
-            totalXP: 0,
-            progressPercentage: 0
-        };
+  try {
+    logger.info(`Rating project ${projectId} by developer ${developerId} with ${rating} stars`);
+    
+    // Normaliser les valeurs d'entrée
+    const level = Math.min(Math.max(parseInt(projectLevel) || 1, 1), 6);
+    const ratingValue = Math.min(Math.max(parseInt(rating) || 0, 0), 5);
+    
+    // Calculer l'XP gagné
+    const xpEarned = ratingValue > 0 ? XP_REWARDS[level][ratingValue] : 0;
+    logger.debug(`XP calculated: ${xpEarned} (level ${level}, rating ${ratingValue})`);
+    
+    // 1. Vérifier si le développeur existe déjà
+    let { data: developer, error: developerError } = await supabase
+      .from('coders')
+      .select('*')
+      .eq('userid', developerId)
+      .single();
+      
+    if (developerError && developerError.code !== 'PGRST116') {
+      logger.error('Error fetching developer:', developerError);
+      throw developerError;
     }
+    
+    // Détermine si le développeur est nouveau
+    const isNewDeveloper = !developer;
+    
+    // Valeurs par défaut pour un nouveau développeur
+    let currentXp = 0;
+    let currentLevel = 1;
+    let newStatus = 'SUCCESS';
+    let wasLevelUp = false;
+    let wasBanned = false;
+    let completedProjects = 0;
+    
+    // Si le développeur existe, récupérer ses données
+    if (developer) {
+      currentXp = developer.xp || 0;
+      currentLevel = developer.level || 1;
+      wasBanned = developer.banned || false;
+      completedProjects = developer.completedorders || 0;
+    }
+    
+    // Ne pas continuer si le développeur est banni
+    if (wasBanned) {
+      return {
+        status: 'BANNED',
+        xpEarned: 0,
+        newLevel: currentLevel,
+        totalXP: currentXp,
+        progressPercentage: 0
+      };
+    }
+    
+    // Si la note est 0, gestion spéciale (perte de niveau ou bannissement)
+    if (ratingValue === 0) {
+      // Déterminez si le développeur doit être banni ou perdre un niveau
+      // Les niveaux 1-2 sont bannis après un échec
+      // Les niveaux 3+ perdent un niveau
+      if (currentLevel <= 2) {
+        newStatus = 'BANNED';
+        // Mettre à jour le développeur comme banni
+        await supabase
+          .from('coders')
+          .update({ 
+            banned: true,
+            updatedat: new Date().toISOString()
+          })
+          .eq('userid', developerId);
+      } else {
+        newStatus = 'LEVEL_DOWN';
+        // Le développeur perd un niveau
+        currentLevel -= 1;
+        // Mettre à jour le niveau du développeur
+        await supabase
+          .from('coders')
+          .update({ 
+            level: currentLevel,
+            updatedat: new Date().toISOString()
+          })
+          .eq('userid', developerId);
+      }
+      
+      // Enregistrer l'évaluation dans l'historique
+      await supabase
+        .from('project_ratings')
+        .insert([{
+          project_id: projectId,
+          coder_id: developerId,
+          admin_id: adminId,
+          rating: 0,
+          xp_earned: 0,
+          level_before: currentLevel + (newStatus === 'LEVEL_DOWN' ? 1 : 0),
+          level_after: currentLevel,
+          rated_at: new Date().toISOString(),
+          status: newStatus
+        }]);
+        
+      return {
+        status: newStatus,
+        xpEarned: 0,
+        newLevel: currentLevel,
+        totalXP: currentXp,
+        progressPercentage: 0
+      };
+    }
+    
+    // Cas normal: le développeur gagne de l'XP
+    // Calculer le nouveau total d'XP
+    const newTotalXp = currentXp + xpEarned;
+    
+    // Déterminer le nouveau niveau
+    let newLevel = currentLevel;
+    for (let i = 0; i < LEVEL_THRESHOLDS.length; i++) {
+      const threshold = LEVEL_THRESHOLDS[i];
+      // Si l'XP actuel est supérieur au seuil minimum et que le développeur
+      // a complété suffisamment de projets pour ce niveau
+      if (newTotalXp >= threshold.minXp && 
+          (threshold.projectsRequired === null || completedProjects + 1 >= threshold.projectsRequired)) {
+        newLevel = threshold.level;
+      }
+    }
+    
+    // Vérifier si c'est une montée de niveau
+    if (newLevel > currentLevel) {
+      wasLevelUp = true;
+      newStatus = 'LEVEL_UP';
+    }
+    
+    // Calculer le pourcentage de progression vers le niveau suivant
+    let progressPercentage = 100; // Par défaut, considérer comme complété
+    let nextLevelXP = null;
+    
+    // Trouver le seuil du niveau suivant
+    if (newLevel < LEVEL_THRESHOLDS.length) {
+      const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === newLevel);
+      const nextThreshold = LEVEL_THRESHOLDS.find(t => t.level === newLevel + 1);
+      
+      if (currentThreshold && nextThreshold) {
+        const xpNeeded = nextThreshold.minXp - currentThreshold.minXp;
+        const xpProgress = newTotalXp - currentThreshold.minXp;
+        progressPercentage = Math.min(Math.floor((xpProgress / xpNeeded) * 100), 100);
+        nextLevelXP = nextThreshold.minXp;
+      }
+    }
+    
+    // Créer ou mettre à jour le développeur
+    if (isNewDeveloper) {
+      await supabase
+        .from('coders')
+        .insert([{
+          userid: developerId,
+          xp: newTotalXp,
+          level: newLevel,
+          completedorders: 1,
+          banned: false,
+          createdat: new Date().toISOString(),
+          updatedat: new Date().toISOString()
+        }]);
+    } else {
+      await supabase
+        .from('coders')
+        .update({
+          xp: newTotalXp,
+          level: newLevel,
+          completedorders: completedProjects + 1,
+          updatedat: new Date().toISOString()
+        })
+        .eq('userid', developerId);
+    }
+    
+    // Enregistrer l'évaluation dans l'historique
+    await supabase
+      .from('project_ratings')
+      .insert([{
+        project_id: projectId,
+        coder_id: developerId,
+        admin_id: adminId,
+        rating: ratingValue,
+        xp_earned: xpEarned,
+        level_before: currentLevel,
+        level_after: newLevel,
+        rated_at: new Date().toISOString(),
+        status: newStatus
+      }]);
+    
+    // Retourner les résultats
+    return {
+      status: newStatus,
+      xpEarned: xpEarned,
+      newLevel: newLevel,
+      totalXP: newTotalXp,
+      progressPercentage: progressPercentage,
+      nextLevelXP: nextLevelXP
+    };
+    
+  } catch (error) {
+    logger.error(`Error rating project:`, error);
+    return {
+      status: 'ERROR',
+      xpEarned: 0,
+      newLevel: 1,
+      totalXP: 0,
+      progressPercentage: 0
+    };
+  }
 }
 
 /**
@@ -84,32 +250,14 @@ async function rateProject(developerId, projectId, adminId, projectLevel, rating
  * @returns {Number} - XP earned
  */
 function calculateXP(projectLevel, rating) {
-    if (rating === 0) return 0;
-    
-    // Base XP per level
-    const baseXP = {
-        1: 10,  // Easy
-        2: 20,  // Beginner
-        3: 40,  // Intermediate
-        4: 80,  // Advanced
-        5: 150, // Expert
-        6: 300  // Super Expert
-    };
-    
-    // Rating multiplier
-    const ratingMultiplier = {
-        1: 0.6,  // Poor performance
-        2: 0.8,  // Below average
-        3: 1.0,  // Average
-        4: 1.2,  // Good
-        5: 1.5   // Excellent
-    };
-    
-    // Calculate XP
-    const level = Math.min(Math.max(projectLevel || 1, 1), 6);
-    const calculatedXP = baseXP[level] * ratingMultiplier[rating];
-    
-    return Math.round(calculatedXP);
+  if (rating === 0) return 0;
+  
+  // Ensure we have valid inputs
+  const level = Math.min(Math.max(parseInt(projectLevel) || 1, 1), 6);
+  const ratingValue = Math.min(Math.max(parseInt(rating) || 0, 0), 5);
+  
+  // Get XP from rewards table
+  return XP_REWARDS[level][ratingValue] || 0;
 }
 
 /**
@@ -118,20 +266,58 @@ function calculateXP(projectLevel, rating) {
  * @returns {Object} - Developer XP data
  */
 async function getDeveloperXP(developerId) {
-    try {
-        // In a real implementation, this would query from the database
-        // For now, return placeholder data
-        return {
-            level: 1,
-            totalXP: 100,
-            projectsCompleted: 5,
-            averageRating: 4.2,
-            nextLevelXP: 200
-        };
-    } catch (error) {
-        logger.error(`Error getting developer XP:`, error);
-        return null;
+  try {
+    const { data, error } = await supabase
+      .from('coders')
+      .select('*')
+      .eq('userid', developerId)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      throw error;
     }
+    
+    if (!data) {
+      return {
+        level: 1,
+        totalXP: 0,
+        projectsCompleted: 0,
+        banned: false,
+        nextLevelXP: 100,
+        progressPercentage: 0
+      };
+    }
+    
+    // Calculer le pourcentage de progression vers le niveau suivant
+    let progressPercentage = 100; // Par défaut, considérer comme complété
+    let nextLevelXP = null;
+    
+    // Trouver le seuil du niveau suivant
+    if (data.level < LEVEL_THRESHOLDS.length) {
+      const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === data.level);
+      const nextThreshold = LEVEL_THRESHOLDS.find(t => t.level === data.level + 1);
+      
+      if (currentThreshold && nextThreshold) {
+        const xpNeeded = nextThreshold.minXp - currentThreshold.minXp;
+        const xpProgress = data.xp - currentThreshold.minXp;
+        progressPercentage = Math.min(Math.floor((xpProgress / xpNeeded) * 100), 100);
+        nextLevelXP = nextThreshold.minXp;
+      }
+    }
+    
+    return {
+      level: data.level || 1,
+      totalXP: data.xp || 0,
+      projectsCompleted: data.completedorders || 0,
+      banned: data.banned || false,
+      nextLevelXP: nextLevelXP,
+      progressPercentage: progressPercentage
+    };
+    
+  } catch (error) {
+    logger.error(`Error getting developer XP:`, error);
+    return null;
+  }
 }
 
 /**
@@ -155,12 +341,18 @@ function getLevelForXP(xp) {
  */
 async function getCoderXPStats(coderId) {
   try {
-    const { data, error } = await supabase.rpc('get_coder_xp_stats', { coder_userid: coderId });
+    const { data, error } = await supabase
+      .from('coders')
+      .select('*')
+      .eq('userid', coderId)
+      .single();
     
-    if (error) throw error;
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
     
     // Si aucune donnée, créer statistiques par défaut
-    if (!data || data.length === 0) {
+    if (!data) {
       return {
         total_projects: 0,
         perfect_projects: 0,
@@ -172,7 +364,58 @@ async function getCoderXPStats(coderId) {
       };
     }
     
-    return data[0];
+    // Calculer le niveau suivant et la progression
+    let next_level_xp = null;
+    let xp_progress = 100;
+    
+    if (data.level < LEVEL_THRESHOLDS.length) {
+      const currentThreshold = LEVEL_THRESHOLDS.find(t => t.level === data.level);
+      const nextThreshold = LEVEL_THRESHOLDS.find(t => t.level === data.level + 1);
+      
+      if (currentThreshold && nextThreshold) {
+        next_level_xp = nextThreshold.minXp;
+        const xpNeeded = nextThreshold.minXp - currentThreshold.minXp;
+        const xpProgress = data.xp - currentThreshold.minXp;
+        xp_progress = Math.min(Math.floor((xpProgress / xpNeeded) * 100), 100);
+      }
+    }
+    
+    // Calculer la note moyenne
+    const { data: ratings, error: ratingsError } = await supabase
+      .from('project_ratings')
+      .select('rating')
+      .eq('coder_id', coderId);
+    
+    if (ratingsError) {
+      logger.warn(`Error fetching ratings for coder ${coderId}:`, ratingsError);
+    }
+    
+    let avg_rating = 0;
+    let perfect_projects = 0;
+    
+    if (ratings && ratings.length > 0) {
+      // Filtrer les notes valides (supérieures à 0)
+      const validRatings = ratings.filter(r => r.rating > 0);
+      
+      if (validRatings.length > 0) {
+        const sum = validRatings.reduce((acc, curr) => acc + curr.rating, 0);
+        avg_rating = parseFloat((sum / validRatings.length).toFixed(1));
+        
+        // Compter les projets parfaits (note 5)
+        perfect_projects = validRatings.filter(r => r.rating === 5).length;
+      }
+    }
+    
+    return {
+      total_projects: data.completedorders || 0,
+      perfect_projects: perfect_projects,
+      avg_rating: avg_rating,
+      total_xp: data.xp || 0,
+      current_level: data.level || 1,
+      next_level_xp: next_level_xp,
+      xp_progress: xp_progress,
+      banned: data.banned || false
+    };
   } catch (error) {
     logger.error(`Erreur lors de la récupération des statistiques XP du codeur ${coderId}:`, error);
     throw error;
@@ -198,11 +441,7 @@ async function getCoderRatingHistory(coderId, limit = 10) {
         level_before,
         level_after,
         rated_at,
-        orders:project_id (
-          level,
-          description,
-          tags
-        )
+        status
       `)
       .eq('coder_id', coderId)
       .order('rated_at', { ascending: false })
@@ -226,7 +465,7 @@ async function getCodersLeaderboard(limit = 10) {
   try {
     const { data, error } = await supabase
       .from('coders')
-      .select('userid, xp, level')
+      .select('userid, xp, level, completedorders')
       .eq('banned', false)
       .order('level', { ascending: false })
       .order('xp', { ascending: false })
@@ -248,7 +487,7 @@ module.exports = {
   getCoderXPStats,
   getCoderRatingHistory,
   getCodersLeaderboard,
+  getDeveloperXP,
   LEVEL_THRESHOLDS,
-  XP_REWARDS,
-  getDeveloperXP
+  XP_REWARDS
 };

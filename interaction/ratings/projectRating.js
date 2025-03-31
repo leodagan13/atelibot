@@ -1,4 +1,4 @@
-// interaction/ratings/projectRating.js
+// interaction/ratings/projectRating.js - Version corrigée
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const logger = require('../../utils/logger');
 const { rateProject } = require('../../database/xpSystem');
@@ -125,6 +125,8 @@ async function handleRatingVote(interaction) {
       });
     }
     
+    logger.debug(`Évaluation du projet ${projectId} (niveau: ${project.level}) avec note ${rating}`);
+    
     // Récupérer l'utilisateur développeur
     let developer;
     try {
@@ -163,6 +165,8 @@ async function handleRatingVote(interaction) {
       components: disabledRows
     });
     
+    logger.debug(`Appel de rateProject avec developerId=${developerId}, projectId=${projectId}, adminId=${interaction.user.id}, projectLevel=${project.level || 1}, rating=${rating}`);
+    
     // Traiter la note avec le système XP
     const result = await rateProject(
       developerId, 
@@ -171,6 +175,8 @@ async function handleRatingVote(interaction) {
       project.level || 1, 
       rating
     );
+    
+    logger.debug(`Résultat de l'évaluation: ${JSON.stringify(result)}`);
     
     // Créer un message de confirmation
     let confirmEmbed;
@@ -289,7 +295,7 @@ async function handleRatingVote(interaction) {
     if (result.status === 'LEVEL_UP' && result.newLevel >= 4) {
       try {
         const announcementChannel = interaction.client.channels.cache.get(
-          require('../../config/config').ANNOUNCEMENT_CHANNEL_ID
+          require('../../config/config').ANNOUNCEMENT_CHANNEL_ID || '0'
         );
         
         if (announcementChannel) {
@@ -309,10 +315,14 @@ async function handleRatingVote(interaction) {
   } catch (error) {
     logger.error('Erreur lors du traitement du vote de notation:', error);
     
-    await interaction.followUp({
-      content: 'Une erreur est survenue lors du traitement de votre vote.',
-      ephemeral: true
-    });
+    try {
+      await interaction.followUp({
+        content: 'Une erreur est survenue lors du traitement de votre vote.',
+        ephemeral: true
+      });
+    } catch (followupError) {
+      logger.error('Erreur lors de l\'envoi du message d\'erreur:', followupError);
+    }
   }
 }
 
