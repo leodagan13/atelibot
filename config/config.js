@@ -26,7 +26,7 @@ const LEVEL_CHANNELS = {
 const HISTORY_ORDERS_CHANNEL_ID = '1350566173044904077';
 
 // Admin role IDs
-const adminRoleIds = ['1350494624342347878', '1351725292741197976'];
+const adminRoleIds = ['1351725292741197976', '1350494624342347878'];
 
 // Client and Guild IDs for slash commands
 const clientid = '1350474929266491402';  // lowercase to match database

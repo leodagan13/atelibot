@@ -138,8 +138,13 @@ module.exports = {
         const customId = interaction.customId;
         
         try {
+          // Gestion des boutons de notation (commençant par 'rate_')
+          if (customId.startsWith('rate_')) {
+            await handleRatingVote(interaction);
+          }
+          
           // Ordre d'acceptation
-          if (customId.startsWith('accept_order_')) {
+          else if (customId.startsWith('accept_order_')) {
             const orderId = customId.replace('accept_order_', '');
             await handleOrderAcceptance(interaction, orderId);
           }

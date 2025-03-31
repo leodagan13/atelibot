@@ -67,10 +67,9 @@ async function handleOrderCompletion(interaction, orderId) {
     );
     
     const logoAttachment = getLogoAttachment();
-    
+
     await interaction.channel.send({
       embeds: [embed],
-      files: [logoAttachment]
     });
     
     // Envoyer un message dans le canal d'historique

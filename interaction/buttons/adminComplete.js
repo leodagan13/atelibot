@@ -6,6 +6,7 @@ const logger = require('../../utils/logger');
 const { createNotification, getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 const { appearance } = require('../../config/config');
 const { moveChannelToMonthlyCategory } = require('../../utils/channelManager');
+const { sendRatingInterface } = require('../ratings/projectRating');
 
 /**
  * Gère la clôture d'un projet par un administrateur
@@ -77,8 +78,31 @@ async function handleAdminCompletion(interaction, orderId) {
     
     await interaction.channel.send({
       embeds: [embed],
-      files: [logoAttachment]
     });
+    
+    // Afficher l'interface de notation si un développeur est assigné
+    try {
+      if (order.assignedto) {
+        const developer = await interaction.client.users.fetch(order.assignedto);
+        
+        // Ajouter un délai de 2 secondes pour séparer les messages
+        setTimeout(async () => {
+          await sendRatingInterface(
+            interaction.channel, 
+            order, 
+            developer, 
+            interaction.user
+          );
+          
+          // Message explicatif
+          await interaction.channel.send({
+            content: `<@${interaction.user.id}>, veuillez noter le travail de <@${order.assignedto}> en sélectionnant une note ci-dessus.`
+          });
+        }, 2000);
+      }
+    } catch (ratingError) {
+      logger.error('Error displaying rating interface:', ratingError);
+    }
     
     // Envoyer un message dans le canal d'historique
     const historyChannel = interaction.guild.channels.cache.get(HISTORY_ORDERS_CHANNEL_ID);
@@ -100,7 +124,6 @@ async function handleAdminCompletion(interaction, orderId) {
       
       await historyChannel.send({ 
         embeds: [historyEmbed],
-        files: [logoAttachment]
       });
     }
     

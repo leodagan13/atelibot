@@ -1,4 +1,4 @@
-// interaction/ratings/projectRating.js - Version corrigée
+// interaction/ratings/projectRating.js - Correction du problème de bouton
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const logger = require('../../utils/logger');
 const { rateProject } = require('../../database/xpSystem');
@@ -64,20 +64,20 @@ async function sendRatingInterface(channel, projectData, developer, admin) {
           .setStyle(ButtonStyle.Danger) // Rouge
       );
 
-    // Configurer les couleurs personnalisées avec des options hexadécimales
-    row1.components[0].setStyle(ButtonStyle.Success); // Option 1: Vert (#3BA55D)
-    row1.components[1].setStyle(ButtonStyle.Primary); // Option 2: Bleu (#5865F2)
-    row1.components[2].setStyle(ButtonStyle.Danger);  // Option 3: Rouge (#ED4245)
-    row1.components[3].setStyle(ButtonStyle.Secondary); // Option 4: Gris (#4F545C)
-    row1.components[4].data.style = 5; // Option 5: Bleu violet (#5865F2)
+    // Configurer les couleurs personnalisées - CORRECTION DU PROBLÈME
+    // Ne pas utiliser style 5 (Link) car il nécessite une URL
+    row1.components[0].setStyle(ButtonStyle.Success);  // Option 1: Vert
+    row1.components[1].setStyle(ButtonStyle.Primary);  // Option 2: Bleu
+    row1.components[2].setStyle(ButtonStyle.Danger);   // Option 3: Rouge
+    row1.components[3].setStyle(ButtonStyle.Secondary); // Option 4: Gris
+    row1.components[4].setStyle(ButtonStyle.Primary);  // Option 5: Bleu (au lieu de style 5)
 
     const logoAttachment = getLogoAttachment();
 
     // Envoyer le message
     return await channel.send({
       embeds: [embed],
-      components: [row1, row2],
-      files: [logoAttachment]
+      components: [row1, row2]
     });
   } catch (error) {
     logger.error('Erreur lors de l\'envoi de l\'interface de notation:', error);
@@ -232,8 +232,7 @@ async function handleRatingVote(interaction) {
     
     // Envoyer la confirmation
     await interaction.channel.send({
-      embeds: [confirmEmbed],
-      files: [logoAttachment]
+      embeds: [confirmEmbed]
     });
     
     // Marquer le projet comme complété dans la base de données
