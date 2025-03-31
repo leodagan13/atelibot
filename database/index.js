@@ -118,14 +118,25 @@ const orderDB = {
   // Trouver une offre par ID
   async findById(orderId) {
     try {
+      logger.debug(`Finding order with ID: ${orderId}`);
+      
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('orderid', orderId)
-        .single();
+        .eq('orderid', orderId);
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        logger.error(`Supabase error finding order with ID ${orderId}:`, error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        logger.warn(`No order found with ID ${orderId}`);
+        return null;
+      }
+      
+      logger.debug(`Found order: ${JSON.stringify(data[0])}`);
+      return data[0];
     } catch (error) {
       logger.error(`Error finding order with ID ${orderId}:`, error);
       throw error;

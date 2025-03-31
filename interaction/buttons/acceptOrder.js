@@ -23,7 +23,10 @@ async function handleOrderAcceptance(interaction, orderId) {
   try {
     const coderId = interaction.user.id;
     
-    // Vérifier si le codeur travaille déjà sur un autre projet
+    // Log for debugging
+    logger.info(`User ${coderId} attempting to accept order ${orderId}`);
+    
+    // Check if coder is already working on another project
     const coderData = await coderDB.findByUserId(coderId);
     if (coderData && coderData.activeorderid) {
       return interaction.reply({
@@ -32,23 +35,22 @@ async function handleOrderAcceptance(interaction, orderId) {
       });
     }
     
-    // Assurez-vous que l'ordre complet est bien récupéré depuis la base de données
+    // Get the order from database with better error handling
     const order = await orderDB.findById(orderId);
+    
+    // Check if order exists
     if (!order) {
+      logger.error(`Order with ID ${orderId} not found in database`);
       return interaction.reply({
         content: 'Cette offre n\'existe plus ou a déjà été prise.',
         ephemeral: true
       });
     }
     
-    // Log pour débogage
+    // Log for debugging
     logger.debug(`Order data retrieved for acceptance: ${JSON.stringify(order)}`);
     
-    // Vérifier que la deadline est bien présente dans les données
-    if (order.deadline) {
-      logger.debug(`Deadline found: ${order.deadline}`);
-    }
-    
+    // Check if order is still open
     if (order.status !== 'OPEN') {
       return interaction.reply({
         content: 'Cette offre n\'est plus disponible.',
@@ -56,33 +58,36 @@ async function handleOrderAcceptance(interaction, orderId) {
       });
     }
     
-    // Mettre à jour l'offre dans la base de données
+    // Update the order in the database
     await orderDB.updateStatus(orderId, 'ASSIGNED', coderId);
+    logger.info(`Order ${orderId} status updated to ASSIGNED for coder ${coderId}`);
     
-    // Mettre à jour le codeur dans la base de données
+    // Update coder in database
     await coderDB.setActiveOrder(coderId, orderId);
+    logger.info(`Coder ${coderId} now has active order ${orderId}`);
     
-    // Ajouter le codeur à la liste des codeurs actifs en mémoire
+    // Add coder to active coders list in memory
     activeCoders.add(coderId);
     
-    // Créer un channel privé avec toutes les données
+    // Create private channel with all data
     const guild = interaction.guild;
     const privateChannel = await createPrivateChannel(guild, order, coderId);
+    logger.info(`Created private channel ${privateChannel.id} for order ${orderId}`);
     
-    // Envoyer un message dans le nouveau canal avec toutes les données
+    // Send initial message in new channel
     await sendInitialMessage(privateChannel, order, coderId);
     
-    // Répondre à l'interaction
+    // Reply to interaction
     await interaction.reply({
       content: `Vous avez accepté le travail! Un canal privé a été créé: ${privateChannel}`,
       ephemeral: true
     });
     
-    // Désactiver le bouton dans le message original
+    // Disable button in original message
     await updateOriginalMessage(interaction);
     
   } catch (error) {
-    logger.error('Error handling order acceptance:', error);
+    logger.error(`Error handling order acceptance for ID ${orderId}:`, error);
     await interaction.reply({
       content: 'Une erreur est survenue lors de l\'acceptation de l\'offre.',
       ephemeral: true

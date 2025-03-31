@@ -341,7 +341,7 @@ async function processOrderCancellation(interaction, confirmationData, client) {
  */
 async function publishModalOrder(interaction, orderId, client) {
   try {
-    // Différer immédiatement la mise à jour pour éviter l'expiration
+    // Defer update immediately
     await interaction.deferUpdate();
     
     const orderSession = client.activeOrders.get(interaction.user.id);
@@ -354,7 +354,45 @@ async function publishModalOrder(interaction, orderId, client) {
       });
     }
 
-    // Create the order data structure for display
+    // Create the order data structure
+    const orderData = {
+      orderId: orderId,
+      adminId: interaction.user.id,
+      data: {
+        clientName: orderSession.data.clientName,
+        compensation: orderSession.data.compensation,
+        description: orderSession.data.description,
+        tags: orderSession.data.tags || [],
+        requiredRoles: orderSession.data.requiredRoles || [],
+        deadline: orderSession.data.deadline || null,
+        level: orderSession.data.level || 1
+      }
+    };
+
+    // Log for debugging
+    logger.debug(`Creating order with data: ${JSON.stringify(orderData)}`);
+
+    // Create the order in database with detailed error handling
+    let createdOrder;
+    try {
+      createdOrder = await orderDB.create(orderData);
+      
+      if (!createdOrder) {
+        throw new Error('Order creation returned null');
+      }
+      
+      logger.info(`Successfully created order: ${JSON.stringify(createdOrder)}`);
+    } catch (dbError) {
+      logger.error('Database error creating order:', dbError);
+      return interaction.editReply({
+        content: `Erreur de base de données lors de la création de l'offre: ${dbError.message}`,
+        embeds: [],
+        components: [],
+        files: []
+      });
+    }
+
+    // Create embed for display
     const displayOrderData = {
       orderid: orderId,
       description: orderSession.data.description,
@@ -372,7 +410,7 @@ async function publishModalOrder(interaction, orderId, client) {
     const { embed, row } = createSidebarOrderEmbed(displayOrderData);
     const logoAttachment = getLogoAttachment();
 
-    // Get the appropriate publish channel based on level
+    // Get publish channel
     const level = orderSession.data.level || 1;
     const publishChannelId = getPublishChannelId(level, client);
     
@@ -396,12 +434,18 @@ async function publishModalOrder(interaction, orderId, client) {
     });
 
     // Update the order with the message ID
-    await orderDB.updateMessageId(orderId, publishedMessage.id);
+    try {
+      await orderDB.updateMessageId(orderId, publishedMessage.id);
+      logger.info(`Updated order ${orderId} with message ID ${publishedMessage.id}`);
+    } catch (updateError) {
+      logger.error(`Failed to update order with message ID:`, updateError);
+      // Continue anyway since the order is created
+    }
 
     // Clear the active order
     client.activeOrders.delete(interaction.user.id);
 
-    // Mettre à jour l'interaction originale à la fin (au lieu de reply)
+    // Update the interaction
     return interaction.editReply({
       content: `✅ Offre #${orderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`,
       embeds: [],
@@ -411,7 +455,6 @@ async function publishModalOrder(interaction, orderId, client) {
 
   } catch (error) {
     logger.error('Error publishing modal order:', error);
-    // En cas d'erreur, également utiliser editReply
     return interaction.editReply({
       content: 'Une erreur est survenue lors de la publication de l\'offre.',
       embeds: [],
