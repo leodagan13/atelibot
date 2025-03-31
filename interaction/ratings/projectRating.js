@@ -1,8 +1,8 @@
-// interaction/projectRating.js
+// interaction/ratings/projectRating.js
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const logger = require('../utils/logger');
-const { rateProject } = require('../database/xpSystem');
-const { getLogoAttachment } = require('../utils/modernEmbedBuilder');
+const logger = require('../../utils/logger');
+const { rateProject } = require('../../database/xpSystem');
+const { getLogoAttachment } = require('../../utils/modernEmbedBuilder');
 
 /**
  * Envoie un message d'évaluation avec boutons pour noter un projet
@@ -115,7 +115,7 @@ async function handleRatingVote(interaction) {
     }
     
     // Récupérer les informations du projet
-    const { orderDB } = require('../database');
+    const { orderDB } = require('../../database');
     const project = await orderDB.findById(projectId);
     
     if (!project) {
@@ -289,7 +289,7 @@ async function handleRatingVote(interaction) {
     if (result.status === 'LEVEL_UP' && result.newLevel >= 4) {
       try {
         const announcementChannel = interaction.client.channels.cache.get(
-          require('../config/config').ANNOUNCEMENT_CHANNEL_ID
+          require('../../config/config').ANNOUNCEMENT_CHANNEL_ID
         );
         
         if (announcementChannel) {
