@@ -341,9 +341,9 @@ async function handleCategorySelection(interaction, client) {
   // Create role selection menu
   const roleSelectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_roles_${category}_${userId}`)
-    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 5)`)
+    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
     .setMinValues(0)
-    .setMaxValues(5);
+    .setMaxValues(20);
   
   // Add roles as options (limit to 25 which is Discord's max)
   const roleOptions = roles.slice(0, 25).map(role => ({
@@ -447,9 +447,9 @@ async function handleRoleSelection(interaction, client) {
   // Create role selection menu
   const roleSelectMenu = new StringSelectMenuBuilder()
     .setCustomId(`select_roles_${category}_${userId}`)
-    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 5)`)
+    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
     .setMinValues(0)
-    .setMaxValues(5);
+    .setMaxValues(20);
   
   // Add roles as options (limit to 25 which is Discord's max)
   const roleOptions = roles.slice(0, 25).map(role => ({
@@ -549,10 +549,32 @@ async function handleBackToCategories(interaction, client) {
     ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
     : '\n\nNo roles selected yet.';
   
-  await interaction.editReply({
-    content: `Select a role category:${selectedRolesText}`,
-    components: [row1, row2]
-  });
+  try {
+    // Make sure we're using the correct method based on the interaction state
+    if (interaction.replied || interaction.deferred) {
+      await interaction.editReply({
+        content: `Select a role category:${selectedRolesText}`,
+        components: [row1, row2]
+      });
+    } else {
+      await interaction.update({
+        content: `Select a role category:${selectedRolesText}`,
+        components: [row1, row2]
+      });
+    }
+  } catch (error) {
+    console.error('Error in back to categories handler:', error);
+    // Try one last method if the others fail
+    try {
+      await interaction.followUp({
+        content: `Select a role category:${selectedRolesText}`,
+        components: [row1, row2],
+        ephemeral: true
+      });
+    } catch (followUpError) {
+      console.error('Failed to respond in handleBackToCategories:', followUpError);
+    }
+  }
 }
 
 /**
@@ -573,6 +595,11 @@ async function handleContinueToLevel(interaction, client) {
       content: 'Error: Order creation session lost.',
       components: []
     });
+  }
+  
+  // If this is a skip_roles action, ensure an empty requiredRoles array
+  if (interaction.customId.startsWith('skip_roles_')) {
+    orderSession.data.requiredRoles = [];
   }
   
   // Move to level selection step
@@ -814,8 +841,8 @@ function getRolesByCategory(guild, category) {
   // Skip administrative or system roles
   const excludedRoleIds = ['1351225002577362977', '1351725292741197976', '1350494624342347878', '1351733161851097160', '1354152839391219794', '1354096392930594817', '1354096374446293132', '1354095959432364042', '1354095959432364042', '1354095928285335704', '1354095899760005303', '1354095863370219622', '1354152891631538227', '1353658097251520533', '1356598917869080586']; 
   
-  // Filter roles based on category
-  return guild.roles.cache
+  // Convert Collection to Array first
+  return Array.from(guild.roles.cache.values())
     .filter(role => {
       // Skip managed roles, @everyone role, and excluded roles
       if (role.managed || role.id === guild.id || excludedRoleIds.includes(role.id)) return false;
