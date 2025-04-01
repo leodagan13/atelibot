@@ -16,7 +16,7 @@ async function handleOrderConfirmationModal(interaction, client) {
   const compensation = interaction.fields.getTextInputValue('compensation');
   const description = interaction.fields.getTextInputValue('description');
   const tagsInput = interaction.fields.getTextInputValue('tags');
-  const levelInput = interaction.fields.getTextInputValue('level') || '1';
+  const levelInput = interaction.fields.getTextInputValue('level');
   
   // Process level - validate it's between 1-6
   let level = 1;
