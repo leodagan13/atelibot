@@ -105,18 +105,36 @@ module.exports = {
             };
             orderSession.step = 'select_roles';
             
-            // Acknowledge the modal submission
+            // Liste de rôles à exclure (par ID)
+            const excludedRoleIds = ['1351225002577362977', '1351725292741197976', '1350494624342347878', '1351733161851097160', '1354152839391219794', '1354096392930594817', '1354096374446293132', '1354095959432364042', '1354095959432364042', '1354095928285335704', '1354095899760005303', '1354095863370219622', '1354152891631538227', '1353658097251520533', '1356598917869080586']; 
+
+            // Récupérer tous les rôles du serveur sauf ceux exclus
+            const availableRoles = interaction.guild.roles.cache
+              .filter(role => 
+                !excludedRoleIds.includes(role.id) && 
+                !role.managed && 
+                role.id !== interaction.guild.id
+              )
+              .sort((a, b) => b.position - a.position);
+
+            // Créer un menu select avec les rôles filtrés
+            const roleSelectMenu = new StringSelectMenuBuilder()
+              .setCustomId(`select_roles_${userId}`)
+              .setPlaceholder('Sélectionner des rôles (max 5)')
+              .setMinValues(0)
+              .setMaxValues(5)
+              .addOptions(
+                availableRoles.map(role => ({
+                  label: role.name,
+                  value: role.id,
+                  emoji: role.unicodeEmoji || undefined
+                }))
+              );
+
+            // Répondre avec le menu sélecteur
             await interaction.reply({
-              content: 'Détails enregistrés! Maintenant, sélectionnez les rôles requis pour ce travail:',
-              components: [
-                new ActionRowBuilder().addComponents(
-                  new RoleSelectMenuBuilder()
-                    .setCustomId(`select_roles_${userId}`)
-                    .setPlaceholder('Sélectionner des rôles (max 5)')
-                    .setMinValues(0)
-                    .setMaxValues(5)
-                )
-              ],
+              content: 'Sélectionnez les rôles requis pour ce travail:',
+              components: [new ActionRowBuilder().addComponents(roleSelectMenu)],
               ephemeral: true
             });
           } else {
