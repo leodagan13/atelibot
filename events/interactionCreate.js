@@ -825,12 +825,29 @@ async function handleOrderModalSubmit(interaction, client) {
     const compensation = interaction.fields.getTextInputValue('compensation');
     const description = interaction.fields.getTextInputValue('description');
     const tagsInput = interaction.fields.getTextInputValue('tags');
-    const levelInput = interaction.fields.getTextInputValue('level') || '1';
     
-    // Process level - validate it's between 1-6
-    let level = 1;
-    if (levelInput && !isNaN(parseInt(levelInput))) {
-      level = Math.min(Math.max(parseInt(levelInput), 1), 6);
+    // Get session data which should include the level
+    const userId = interaction.user.id;
+    const orderSession = client.activeOrders.get(userId);
+    
+    if (!orderSession) {
+      logger.error(`No session found for user ${userId} in order modal submit.`);
+      return interaction.editReply({
+        content: 'Error: Your order creation session has expired. Please start again.',
+        embeds: [],
+        components: [],
+        files: []
+      });
+    }
+    
+    // Get level from session
+    let level = orderSession.data.level || 1;
+    
+    // Validate level
+    if (isNaN(parseInt(level))) {
+      level = 1;
+    } else {
+      level = Math.min(Math.max(parseInt(level), 1), 6);
     }
     
     // Vérification pour le niveau 6 - seul un super administrateur peut créer un projet niveau 6
@@ -851,11 +868,11 @@ async function handleOrderModalSubmit(interaction, client) {
       .filter(tag => tag.length > 0);
       
     // Process required roles
-    const requiredRolesInput = interaction.fields.getTextInputValue('requiredRoles');
     let requiredRoles = [];
-    
     try {
-      if (requiredRolesInput.trim()) {
+      // Try to get requiredRoles from the form if provided
+      const requiredRolesInput = interaction.fields.getTextInputValue('requiredRoles');
+      if (requiredRolesInput && requiredRolesInput.trim()) {
         requiredRoles = requiredRolesInput.split(',')
           .map(role => role.trim())
           .filter(role => role.length > 0)
@@ -869,36 +886,18 @@ async function handleOrderModalSubmit(interaction, client) {
               id: guildRole ? guildRole.id : null
             };
           });
+      } else if (orderSession.data.requiredRoles) {
+        // Fallback to session data if form field is missing
+        requiredRoles = orderSession.data.requiredRoles;
       }
     } catch (roleError) {
-      logger.error('Error processing required roles:', roleError);
-      requiredRoles = [];
+      logger.warn('Error processing required roles input, using session data:', roleError);
+      // Use roles from session if there's an error with the input
+      requiredRoles = orderSession.data.requiredRoles || [];
     }
     
-    // Process deadline
-    let deadline = null;
-    try {
-      const deadlineString = interaction.fields.getTextInputValue('deadline') || '';
-      if (deadlineString.trim()) {
-        // Validate deadline format (basic validation)
-        if (/^\d{4}-\d{2}-\d{2}$/.test(deadlineString.trim())) {
-          deadline = new Date(deadlineString.trim());
-          
-          // Check if it's a valid date
-          if (isNaN(deadline.getTime())) {
-            throw new Error('Invalid date');
-          }
-          
-          logger.debug(`Valid deadline parsed: ${deadline.toISOString()}`);
-        } else {
-          throw new Error('Format incorrect');
-        }
-      }
-    } catch (dateError) {
-      logger.warn(`Invalid deadline format: ${interaction.fields.getTextInputValue('deadline')}`);
-      // On continue sans deadline en cas d'erreur
-      deadline = null;
-    }
+    // Process deadline from session
+    let deadline = orderSession.data.deadline || null;
     
     // Generate unique order ID
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
@@ -913,7 +912,7 @@ async function handleOrderModalSubmit(interaction, client) {
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
       clientName: clientName,
-      deadline: deadline ? deadline.toISOString() : null,
+      deadline: deadline,
       level: level
     };
     
@@ -935,7 +934,7 @@ async function handleOrderModalSubmit(interaction, client) {
         description,
         tags,
         requiredRoles,
-        deadline: deadline ? deadline.toISOString() : null,
+        deadline: deadline,
         level: level
       },
       channelId: interaction.channelId
@@ -951,11 +950,22 @@ async function handleOrderModalSubmit(interaction, client) {
     
   } catch (error) {
     logger.error('Error handling order modal submit:', error);
-    if (!interaction.replied) {
-      await interaction.reply({
-        content: 'Une erreur est survenue lors du traitement du formulaire.',
-        ephemeral: true
-      });
+    try {
+      if (interaction.deferred) {
+        await interaction.editReply({
+          content: 'Une erreur est survenue lors du traitement du formulaire. Veuillez réessayer.',
+          embeds: [],
+          components: [],
+          files: []
+        });
+      } else {
+        await interaction.reply({
+          content: 'Une erreur est survenue lors du traitement du formulaire. Veuillez réessayer.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      logger.error('Failed to respond with error message:', replyError);
     }
   }
 }
