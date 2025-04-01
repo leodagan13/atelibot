@@ -304,6 +304,40 @@ const orderDB = {
       logger.error(`Error resetting verification cooldown for order ${orderId}:`, error);
       throw error;
     }
+  },
+  
+  // Add this function to update required roles for an order
+  async updateRequiredRoles(orderId, requiredRoles) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ required_roles: requiredRoles })
+        .eq('orderid', orderId)
+        .select();
+      
+      if (error) throw error;
+      return data[0];
+    } catch (error) {
+      logger.error(`Error updating required roles for order ${orderId}:`, error);
+      throw error;
+    }
+  },
+
+  // Function to get required roles for an order
+  async getRequiredRoles(orderId) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('required_roles')
+        .eq('orderid', orderId)
+        .single();
+      
+      if (error) throw error;
+      return data.required_roles || [];
+    } catch (error) {
+      logger.error(`Error getting required roles for order ${orderId}:`, error);
+      return [];
+    }
   }
 };
 

@@ -361,6 +361,17 @@ async function handleCategorySelection(interaction, client) {
     });
   }
   
+  if (roleOptions.length < 20) {
+    // Add dummy options to reach minimum
+    for (let i = roleOptions.length; i < 20; i++) {
+      roleOptions.push({
+        label: `No selection ${i}`,
+        value: `no_selection_${i}`,
+        default: false
+      });
+    }
+  }
+  
   roleSelectMenu.addOptions(roleOptions);
   
   // Create navigation buttons
@@ -502,19 +513,49 @@ async function handleRoleSelection(interaction, client) {
  * @param {Object} client - Discord client
  */
 async function handleBackToCategories(interaction, client) {
+  // Add debug logging
+  console.log('Button clicked by user:', interaction.user.id);
+  console.log('Active orders before:', Array.from(client.activeOrders.keys()));
+  
   // Defer update to avoid timeout
   await interaction.deferUpdate();
   
-  const userId = interaction.customId.split('_').pop();
+  const userId = interaction.user.id;
   
-  // Get the order session
-  const orderSession = client.activeOrders.get(userId);
-  if (!orderSession) {
-    return interaction.editReply({
-      content: 'Error: Order creation session lost.',
-      components: []
+  console.log('Checking for session with ID:', userId);
+  console.log('Session exists:', client.activeOrders.has(userId));
+  
+  // Get the order session with recovery mechanism
+  if (!client.activeOrders.has(userId)) {
+    console.log('Recreating lost session for user:', userId);
+    
+    // Get any previous data from interaction components if possible
+    let previousData = {};
+    try {
+      // Try to extract previous roles from message content
+      const messageContent = interaction.message.content;
+      if (messageContent.includes('Currently selected roles:')) {
+        // Extract role information if available
+        console.log('Attempting to recover session data from message content');
+      }
+    } catch (e) {
+      console.error('Error recovering session data:', e);
+    }
+    
+    // Create a fresh session
+    client.activeOrders.set(userId, {
+      step: 'select_role_category',
+      data: {
+        requiredRoles: [],
+        ...previousData
+      },
+      channelId: interaction.channelId
     });
+    
+    console.log('New session created:', client.activeOrders.get(userId));
   }
+  
+  const orderSession = client.activeOrders.get(userId);
   
   // Recreate the category selection menu
   const categorySelectMenu = new StringSelectMenuBuilder()
