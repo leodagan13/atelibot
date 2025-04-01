@@ -312,9 +312,7 @@ module.exports = {
             // Create role selection menu
             const roleSelectMenu = new StringSelectMenuBuilder()
               .setCustomId(`select_roles_${category}_${userId}`)
-              .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
-              .setMinValues(0)
-              .setMaxValues(20);
+              .setPlaceholder(`Select ${formatCategoryName(category)} roles`);
             
             // Add roles as options (limit to 25 which is Discord's max)
             const roleOptions = roles.slice(0, 25).map(role => ({
@@ -330,6 +328,27 @@ module.exports = {
                 value: 'no_roles',
                 default: true
               });
+            }
+            
+            // IMPORTANT: Add dummy options to reach 20 if less than that
+            // Discord requires exactly 20 options when using minValues=0 and maxValues=20
+            if (roleOptions.length < 20) {
+              for (let i = roleOptions.length; i < 20; i++) {
+                roleOptions.push({
+                  label: `No selection ${i}`,
+                  value: `no_selection_${i}`,
+                  default: false
+                });
+              }
+            }
+            
+            // Now set the selection parameters after we know how many options we have
+            if (roleOptions.length <= 25) {
+              roleSelectMenu.setMinValues(0)
+                .setMaxValues(roleOptions.length);
+            } else {
+              roleSelectMenu.setMinValues(0)
+                .setMaxValues(25); // Discord maximum
             }
             
             roleSelectMenu.addOptions(roleOptions);
@@ -428,25 +447,43 @@ module.exports = {
             // Create role selection menu
             const roleSelectMenu = new StringSelectMenuBuilder()
               .setCustomId(`select_roles_${category}_${userId}`)
-              .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
-              .setMinValues(0)
-              .setMaxValues(20);
+              .setPlaceholder(`Select ${formatCategoryName(category)} roles`);
             
             // Add roles as options (limit to 25 which is Discord's max)
             const roleOptions = roles.slice(0, 25).map(role => ({
               label: role.name,
               value: role.id,
-              emoji: role.unicodeEmoji || undefined,
-              // Mark as default if already selected
-              default: orderSession.data.requiredRoles.some(r => r.id === role.id)
+              emoji: role.unicodeEmoji || undefined
             }));
             
+            // If no roles in category, add a placeholder option
             if (roleOptions.length === 0) {
               roleOptions.push({
                 label: 'No roles in this category',
                 value: 'no_roles',
                 default: true
               });
+            }
+            
+            // IMPORTANT: Add dummy options to reach 20 if less than that
+            // Discord requires exactly 20 options when using minValues=0 and maxValues=20
+            if (roleOptions.length < 20) {
+              for (let i = roleOptions.length; i < 20; i++) {
+                roleOptions.push({
+                  label: `No selection ${i}`,
+                  value: `no_selection_${i}`,
+                  default: false
+                });
+              }
+            }
+            
+            // Now set the selection parameters after we know how many options we have
+            if (roleOptions.length <= 25) {
+              roleSelectMenu.setMinValues(0)
+                .setMaxValues(roleOptions.length);
+            } else {
+              roleSelectMenu.setMinValues(0)
+                .setMaxValues(25); // Discord maximum
             }
             
             roleSelectMenu.addOptions(roleOptions);
