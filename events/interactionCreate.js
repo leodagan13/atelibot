@@ -1,4 +1,4 @@
-// events/interactionCreate.js - Updated to support level-based channel publishing
+// events/interactionCreate.js - Updated with category-based role selection
 
 const { handleOrderAcceptance } = require('../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../interaction/buttons/completeOrder');
@@ -50,7 +50,7 @@ module.exports = {
         }
       }
 
-      // Handler pour les soumissions de Modal
+      // Handler for modal submissions
       else if (interaction.isModalSubmit()) {
         // Handle initial order details form submission
         if (interaction.customId.startsWith('create_order_details_')) {
@@ -103,43 +103,39 @@ module.exports = {
               deadline,
               requiredRoles: []
             };
-            orderSession.step = 'select_roles';
+            orderSession.step = 'select_role_category';
             
-            // Liste de rôles à exclure (par ID)
-            const excludedRoleIds = ['1351225002577362977', '1351725292741197976', '1350494624342347878', '1351733161851097160', '1354152839391219794', '1354096392930594817', '1354096374446293132', '1354095959432364042', '1354095959432364042', '1354095928285335704', '1354095899760005303', '1354095863370219622', '1354152891631538227', '1353658097251520533', '1356598917869080586']; 
+            // Create the category selection menu instead of directly showing all roles
+            const categorySelectMenu = new StringSelectMenuBuilder()
+              .setCustomId(`select_category_${userId}`)
+              .setPlaceholder('Select a role category')
+              .addOptions([
+                { label: 'Dev Language', value: 'dev_language', emoji: '💻' },
+                { label: 'Front End', value: 'front_end', emoji: '🖥️' },
+                { label: 'Back End', value: 'back_end', emoji: '⚙️' },
+                { label: 'Database', value: 'database', emoji: '🗄️' },
+                { label: 'UI', value: 'ui', emoji: '🎨' },
+                { label: 'Other', value: 'other', emoji: '📦' }
+              ]);
+            
+            // Add a "Skip" button for users who don't want to select roles
+            const skipButton = new ButtonBuilder()
+              .setCustomId(`skip_roles_${userId}`)
+              .setLabel('Skip Role Selection')
+              .setStyle(ButtonStyle.Secondary);
+            
+            const row1 = new ActionRowBuilder().addComponents(categorySelectMenu);
+            const row2 = new ActionRowBuilder().addComponents(skipButton);
 
-            // Récupérer tous les rôles du serveur sauf ceux exclus
-            const availableRoles = interaction.guild.roles.cache
-              .filter(role => 
-                !excludedRoleIds.includes(role.id) && 
-                !role.managed && 
-                role.id !== interaction.guild.id
-              )
-              .sort((a, b) => b.position - a.position);
-
-            // Créer un menu select avec les rôles filtrés
-            const roleSelectMenu = new StringSelectMenuBuilder()
-              .setCustomId(`select_roles_${userId}`)
-              .setPlaceholder('Sélectionner des rôles (max 5)')
-              .setMinValues(0)
-              .setMaxValues(5)
-              .addOptions(
-                availableRoles.map(role => ({
-                  label: role.name,
-                  value: role.id,
-                  emoji: role.unicodeEmoji || undefined
-                }))
-              );
-
-            // Répondre avec le menu sélecteur
+            // Respond with the category selection menu
             await interaction.reply({
-              content: 'Sélectionnez les rôles requis pour ce travail:',
-              components: [new ActionRowBuilder().addComponents(roleSelectMenu)],
+              content: 'First, select a role category:',
+              components: [row1, row2],
               ephemeral: true
             });
           } else {
             await interaction.reply({
-              content: 'Une erreur est survenue: session de création perdue.',
+              content: 'An error occurred: creation session lost.',
               ephemeral: true
             });
           }
@@ -153,67 +149,78 @@ module.exports = {
       
       // Handle button interactions
       else if (interaction.isButton()) {
-        const customId = interaction.customId;
+        // Get the customId from the interaction
+        const buttonId = interaction.customId;
         
         try {
           // Gestion des boutons de notation (commençant par 'rate_')
-          if (customId.startsWith('rate_')) {
+          if (buttonId.startsWith('rate_')) {
             await handleRatingVote(interaction);
           }
           
           // Ordre d'acceptation
-          else if (customId.startsWith('accept_order_')) {
-            const orderId = customId.replace('accept_order_', '');
+          else if (buttonId.startsWith('accept_order_')) {
+            const orderId = buttonId.replace('accept_order_', '');
             await handleOrderAcceptance(interaction, orderId);
           }
           
           // Ordre de complétion
-          else if (customId.startsWith('complete_order_')) {
-            const orderId = customId.replace('complete_order_', '');
+          else if (buttonId.startsWith('complete_order_')) {
+            const orderId = buttonId.replace('complete_order_', '');
             await handleOrderCompletion(interaction, orderId);
           }
           
           // Handle verification request button
-          else if (customId.startsWith('request_verification_')) {
-            const orderId = customId.replace('request_verification_', '');
+          else if (buttonId.startsWith('request_verification_')) {
+            const orderId = buttonId.replace('request_verification_', '');
             await handleVerificationRequest(interaction, orderId);
           }
           
           // Handle admin completion button
-          else if (customId.startsWith('admin_complete_')) {
-            const orderId = customId.replace('admin_complete_', '');
+          else if (buttonId.startsWith('admin_complete_')) {
+            const orderId = buttonId.replace('admin_complete_', '');
             await handleAdminCompletion(interaction, orderId);
           }
           
           // Confirmation d'ordre - Ajout pour le nouveau système
-          else if (customId.startsWith('confirm_modal_order_')) {
-            const orderId = customId.replace('confirm_modal_order_', '');
+          else if (buttonId.startsWith('confirm_modal_order_')) {
+            const orderId = buttonId.replace('confirm_modal_order_', '');
             await publishModalOrder(interaction, orderId, client);
           }
           
           // Annulation d'ordre - Ajout pour le nouveau système
-          else if (customId.startsWith('cancel_modal_order_')) {
+          else if (buttonId.startsWith('cancel_modal_order_')) {
             await cancelModalOrder(interaction, client);
           }
           
+          // Handle back to categories button for role selection
+          else if (buttonId.startsWith('back_to_categories_')) {
+            await handleBackToCategories(interaction, client);
+          }
+          
+          // Handle skipping role selection or continuing to next step
+          else if (buttonId.startsWith('skip_roles_') || buttonId.startsWith('continue_to_level_')) {
+            await handleContinueToLevel(interaction, client);
+          }
+          
           // Confirmation d'ordre - ancienne méthode  
-          else if (customId.startsWith('confirm_order_')) {
+          else if (buttonId.startsWith('confirm_order_')) {
             // Cette partie est désormais gérée par le collector dans orderCreation.js
             // On ne fait rien ici, pour éviter une double manipulation
           }
           
           // Annulation d'ordre - ancienne méthode
-          else if (customId.startsWith('cancel_order_')) {
+          else if (buttonId.startsWith('cancel_order_')) {
             // Cette partie est désormais gérée par le collector dans orderCreation.js
             // On ne fait rien ici, pour éviter une double manipulation
           }
           
           // Boutons non reconnus
           else {
-            logger.warn(`Unrecognized button customId: ${customId}`);
+            logger.warn(`Unrecognized button customId: ${buttonId}`);
           }
         } catch (error) {
-          logger.error(`Error handling button interaction (${customId}):`, error);
+          logger.error(`Error handling button interaction (${buttonId}):`, error);
           
           try {
             // Si l'interaction est encore valide, répondre
@@ -232,182 +239,38 @@ module.exports = {
         }
       }
       
-      // Handler for role selection menu
-      else if (interaction.isRoleSelectMenu()) {
-        try {
-          // Immédiatement différer la réponse pour éviter le timeout
-          await interaction.deferUpdate();
-          
-          if (interaction.customId.startsWith('select_roles_')) {
-            const userId = interaction.user.id;
-            const selectedRoleIds = interaction.values;
-            
-            // Log pour débogage
-            logger.debug(`Rôles sélectionnés par ${userId}: ${selectedRoleIds.join(', ')}`);
-            
-            // Get the order session
-            const orderSession = client.activeOrders.get(userId);
-            if (!orderSession) {
-              return interaction.editReply({
-                content: 'Une erreur est survenue: session de création perdue.',
-                components: [],
-              });
-            }
-            
-            // Convert selected role IDs to role objects with names
-            const selectedRoles = selectedRoleIds.map(roleId => {
-              const role = interaction.guild.roles.cache.get(roleId);
-              return {
-                id: roleId,
-                name: role ? role.name : 'Unknown Role'
-              };
-            });
-            
-            // Store selected roles in session
-            orderSession.data.requiredRoles = selectedRoles;
-            orderSession.step = 'select_level';
-            
-            // Vérifier si l'utilisateur est un super administrateur
-            const isSuperAdmin = interaction.member.roles.cache.has("1351725292741197976");
-            
-            // Créer la sélection de niveau
-            const levelSelectRow = new ActionRowBuilder()
-              .addComponents(
-                new StringSelectMenuBuilder()
-                  .setCustomId(`select_level_${userId}`)
-                  .setPlaceholder('Sélectionner le niveau de difficulté')
-                  .addOptions([
-                    { label: 'Niveau 1 - Facile', value: '1', emoji: '🟩', description: 'Projet simple pour débutants' },
-                    { label: 'Niveau 2 - Débutant', value: '2', emoji: '🟨', description: 'Quelques connaissances requises' },
-                    { label: 'Niveau 3 - Intermédiaire', value: '3', emoji: '🟧', description: 'Difficulté moyenne' },
-                    { label: 'Niveau 4 - Avancé', value: '4', emoji: '🟥', description: 'Projet complexe' },
-                    { label: 'Niveau 5 - Expert', value: '5', emoji: '🔴', description: 'Expertise requise' },
-                    // Niveau 6 uniquement pour super admin
-                    ...(isSuperAdmin ? [
-                      { label: 'Niveau 6 - Super Expert', value: '6', emoji: '⚫', description: 'Réservé aux projets exceptionnels' }
-                    ] : [])
-                  ])
-              );
-            
-            // Afficher la sélection de niveau
-            await interaction.editReply({
-              content: 'Maintenant, sélectionnez le niveau de difficulté de ce projet:',
-              components: [levelSelectRow]
-            });
-            
-            logger.debug(`Sélection de niveau affichée pour ${userId}`);
-          }
-        } catch (error) {
-          logger.error(`Erreur lors de la sélection de rôles: ${error.message}`, error);
-          try {
-            await interaction.followUp({
-              content: 'Une erreur est survenue lors de la sélection des rôles. Veuillez réessayer.',
-              ephemeral: true
-            });
-          } catch (followupError) {
-            logger.error("Impossible d'envoyer le message d'erreur", followupError);
-          }
-        }
-      }
-
       // Handle string select menu interactions
       else if (interaction.isStringSelectMenu()) {
         try {
-          const customId = interaction.customId;
-          
-          // Immédiatement différer la réponse pour éviter le timeout
-          await interaction.deferUpdate();
+          const menuId = interaction.customId;
           
           // Handle order status updates
-          if (customId.startsWith('order_status_')) {
-            const orderId = customId.replace('order_status_', '');
+          if (menuId.startsWith('order_status_')) {
+            const orderId = menuId.replace('order_status_', '');
             await handleOrderStatusUpdate(interaction, orderId);
           } 
+          
+          // Handle category selection for role selection
+          else if (menuId.startsWith('select_category_')) {
+            await handleCategorySelection(interaction, client);
+          }
+          
+          // Handle role selection from a category
+          else if (menuId.startsWith('select_roles_')) {
+            await handleRoleSelection(interaction, client);
+          }
+          
           // Handle level selection
-          else if (customId.startsWith('select_level_')) {
-            const userId = customId.replace('select_level_', '');
-            const selectedLevel = interaction.values[0];
-            
-            logger.debug(`Niveau sélectionné par ${userId}: ${selectedLevel}`);
-            
-            // Get the order session
-            const orderSession = client.activeOrders.get(userId);
-            if (!orderSession) {
-              return interaction.editReply({
-                content: 'Une erreur est survenue: session de création perdue.',
-                components: []
-              });
-            }
-            
-            // Valider que le niveau 6 est sélectionné uniquement par un super admin
-            if (selectedLevel === '6' && !interaction.member.roles.cache.has("1351725292741197976")) {
-              return interaction.editReply({
-                content: "⚠️ Seul un super administrateur peut créer un projet de niveau 6. Veuillez sélectionner un niveau entre 1 et 5.",
-                components: [interaction.message.components[0]]
-              });
-            }
-            
-            // Store selected level in session
-            orderSession.data.level = parseInt(selectedLevel);
-            orderSession.step = 'preview';
-            
-            // Generate a unique ID for this order
-            const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
-            orderSession.orderId = uniqueOrderId;
-            
-            logger.debug(`Génération de l'ID unique: ${uniqueOrderId}`);
-            
-            // Create order data for preview
-            const orderData = {
-              orderid: uniqueOrderId,
-              description: orderSession.data.description,
-              compensation: orderSession.data.compensation,
-              tags: orderSession.data.tags || [],
-              requiredRoles: orderSession.data.requiredRoles || [],
-              adminName: interaction.user.tag,
-              adminid: interaction.user.id,
-              clientName: orderSession.data.clientName,
-              deadline: orderSession.data.deadline,
-              level: orderSession.data.level
-            };
-            
-            // Get the appropriate channel name for this level to show in preview
-            const levelChannelId = getPublishChannelId(parseInt(selectedLevel), client);
-            const levelChannel = client.channels.cache.get(levelChannelId);
-            const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
-            
-            // Create preview embed
-            const { embed, row } = createSidebarOrderEmbed(orderData);
-            
-            // Create confirmation buttons
-            const actionRow = new ActionRowBuilder()
-              .addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`confirm_modal_order_${uniqueOrderId}`)
-                  .setLabel('Publier l\'offre')
-                  .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                  .setCustomId(`cancel_modal_order_${uniqueOrderId}`)
-                  .setLabel('Annuler')
-                  .setStyle(ButtonStyle.Danger)
-              );
-            
-            const logoAttachment = getLogoAttachment();
-            
-            // Show preview with confirmation buttons
-            await interaction.editReply({
-              content: `Voici un aperçu de votre offre de niveau ${selectedLevel}. Elle sera publiée dans le canal #${channelName}. Vérifiez les détails puis cliquez sur "Publier l'offre" pour confirmer:`,
-              embeds: [embed],
-              components: [actionRow],
-              files: [logoAttachment]
-            });
-            
-            logger.debug(`Aperçu de l'offre généré pour ${userId}`);
-          } else {
-            logger.warn(`Unrecognized string select menu customId: ${customId}`);
+          else if (menuId.startsWith('select_level_')) {
+            // This is handled by the existing code in the interactionCreate.js file
+            // Let it pass through to the existing handler
+          } 
+          
+          else {
+            logger.warn(`Unrecognized string select menu customId: ${menuId}`);
           }
         } catch (error) {
-          logger.error(`Error handling string select menu interaction: ${error.message}`, error);
+          logger.error(`Error handling string select menu interaction (${interaction.customId}):`, error);
           
           try {
             await interaction.followUp({
@@ -428,11 +291,14 @@ module.exports = {
           const embed = createNotification(
             'Error Occurred',
             'An error occurred while processing your request.',
-            'ERROR',
-            appearance.logoUrl
+            'ERROR'
           );
+          
+          const logoAttachment = getLogoAttachment();
+          
           await interaction.reply({
             embeds: [embed],
+            files: [logoAttachment],
             ephemeral: true
           });
         } catch (replyError) {
@@ -447,6 +313,298 @@ module.exports = {
     }
   }
 };
+
+/**
+ * Handle selection of a role category
+ * @param {Object} interaction - Interaction object
+ * @param {Object} client - Discord client
+ */
+async function handleCategorySelection(interaction, client) {
+  // Defer update to avoid timeout
+  await interaction.deferUpdate();
+  
+  const userId = interaction.customId.split('_').pop();
+  const category = interaction.values[0];
+  
+  // Get the order session
+  const orderSession = client.activeOrders.get(userId);
+  if (!orderSession) {
+    return interaction.editReply({
+      content: 'Error: Order creation session lost.',
+      components: []
+    });
+  }
+  
+  // Get roles for the selected category
+  const roles = getRolesByCategory(interaction.guild, category);
+  
+  // Create role selection menu
+  const roleSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_roles_${category}_${userId}`)
+    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 5)`)
+    .setMinValues(0)
+    .setMaxValues(5);
+  
+  // Add roles as options (limit to 25 which is Discord's max)
+  const roleOptions = roles.slice(0, 25).map(role => ({
+    label: role.name,
+    value: role.id,
+    emoji: role.unicodeEmoji || undefined
+  }));
+  
+  // If no roles in category, add a placeholder option
+  if (roleOptions.length === 0) {
+    roleOptions.push({
+      label: 'No roles in this category',
+      value: 'no_roles',
+      default: true
+    });
+  }
+  
+  roleSelectMenu.addOptions(roleOptions);
+  
+  // Create navigation buttons
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_categories_${userId}`)
+    .setLabel('Back to Categories')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const continueButton = new ButtonBuilder()
+    .setCustomId(`continue_to_level_${userId}`)
+    .setLabel('Continue to Next Step')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
+  
+  // Show current selections, if any
+  const selectedRoles = orderSession.data.requiredRoles || [];
+  const selectedRolesText = selectedRoles.length > 0 
+    ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
+    : '';
+  
+  await interaction.editReply({
+    content: `Select roles from the ${formatCategoryName(category)} category:${selectedRolesText}`,
+    components: [row1, row2]
+  });
+}
+
+/**
+ * Handle role selection from a category
+ * @param {Object} interaction - Interaction object
+ * @param {Object} client - Discord client
+ */
+async function handleRoleSelection(interaction, client) {
+  // Defer update to avoid timeout
+  await interaction.deferUpdate();
+  
+  const parts = interaction.customId.split('_');
+  const category = parts[2];
+  const userId = parts[3];
+  const selectedRoleIds = interaction.values;
+  
+  // Skip if "no_roles" placeholder was selected
+  if (selectedRoleIds.includes('no_roles')) {
+    return;
+  }
+  
+  // Get the order session
+  const orderSession = client.activeOrders.get(userId);
+  if (!orderSession) {
+    return interaction.editReply({
+      content: 'Error: Order creation session lost.',
+      components: []
+    });
+  }
+  
+  // Initialize requiredRoles array if it doesn't exist
+  if (!orderSession.data.requiredRoles) {
+    orderSession.data.requiredRoles = [];
+  }
+  
+  // Process selected roles
+  for (const roleId of selectedRoleIds) {
+    const role = interaction.guild.roles.cache.get(roleId);
+    if (role) {
+      // Check if role is already selected
+      const existingIndex = orderSession.data.requiredRoles.findIndex(r => r.id === roleId);
+      
+      if (existingIndex >= 0) {
+        // Role already exists, do nothing
+      } else {
+        // Add new role
+        orderSession.data.requiredRoles.push({
+          id: roleId,
+          name: role.name
+        });
+      }
+    }
+  }
+  
+  // Refresh the current category view
+  const roles = getRolesByCategory(interaction.guild, category);
+  
+  // Create role selection menu
+  const roleSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_roles_${category}_${userId}`)
+    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 5)`)
+    .setMinValues(0)
+    .setMaxValues(5);
+  
+  // Add roles as options (limit to 25 which is Discord's max)
+  const roleOptions = roles.slice(0, 25).map(role => ({
+    label: role.name,
+    value: role.id,
+    emoji: role.unicodeEmoji || undefined,
+    // Mark as default if already selected
+    default: orderSession.data.requiredRoles.some(r => r.id === role.id)
+  }));
+  
+  if (roleOptions.length === 0) {
+    roleOptions.push({
+      label: 'No roles in this category',
+      value: 'no_roles',
+      default: true
+    });
+  }
+  
+  roleSelectMenu.addOptions(roleOptions);
+  
+  // Create navigation buttons
+  const backButton = new ButtonBuilder()
+    .setCustomId(`back_to_categories_${userId}`)
+    .setLabel('Back to Categories')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const continueButton = new ButtonBuilder()
+    .setCustomId(`continue_to_level_${userId}`)
+    .setLabel('Continue to Next Step')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
+  const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
+  
+  // Show current selections
+  const selectedRoles = orderSession.data.requiredRoles || [];
+  const selectedRolesText = selectedRoles.length > 0 
+    ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
+    : '';
+  
+  await interaction.editReply({
+    content: `Role(s) selected! Select more from the ${formatCategoryName(category)} category or navigate using the buttons below.${selectedRolesText}`,
+    components: [row1, row2]
+  });
+}
+
+/**
+ * Handle back to categories button
+ * @param {Object} interaction - Interaction object
+ * @param {Object} client - Discord client
+ */
+async function handleBackToCategories(interaction, client) {
+  // Defer update to avoid timeout
+  await interaction.deferUpdate();
+  
+  const userId = interaction.customId.split('_').pop();
+  
+  // Get the order session
+  const orderSession = client.activeOrders.get(userId);
+  if (!orderSession) {
+    return interaction.editReply({
+      content: 'Error: Order creation session lost.',
+      components: []
+    });
+  }
+  
+  // Recreate the category selection menu
+  const categorySelectMenu = new StringSelectMenuBuilder()
+    .setCustomId(`select_category_${userId}`)
+    .setPlaceholder('Select a role category')
+    .addOptions([
+      { label: 'Dev Language', value: 'dev_language', emoji: '💻' },
+      { label: 'Front End', value: 'front_end', emoji: '🖥️' },
+      { label: 'Back End', value: 'back_end', emoji: '⚙️' },
+      { label: 'Database', value: 'database', emoji: '🗄️' },
+      { label: 'UI', value: 'ui', emoji: '🎨' },
+      { label: 'Other', value: 'other', emoji: '📦' }
+    ]);
+  
+  // Add buttons for skipping or continuing
+  const skipButton = new ButtonBuilder()
+    .setCustomId(`skip_roles_${userId}`)
+    .setLabel('Skip Role Selection')
+    .setStyle(ButtonStyle.Secondary);
+  
+  const continueButton = new ButtonBuilder()
+    .setCustomId(`continue_to_level_${userId}`)
+    .setLabel('Continue to Next Step')
+    .setStyle(ButtonStyle.Primary);
+  
+  const row1 = new ActionRowBuilder().addComponents(categorySelectMenu);
+  const row2 = new ActionRowBuilder().addComponents(skipButton, continueButton);
+  
+  // Show current selections
+  const selectedRoles = orderSession.data.requiredRoles || [];
+  const selectedRolesText = selectedRoles.length > 0 
+    ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
+    : '\n\nNo roles selected yet.';
+  
+  await interaction.editReply({
+    content: `Select a role category:${selectedRolesText}`,
+    components: [row1, row2]
+  });
+}
+
+/**
+ * Handle skipping role selection or continuing to next step
+ * @param {Object} interaction - Interaction object
+ * @param {Object} client - Discord client
+ */
+async function handleContinueToLevel(interaction, client) {
+  // Defer update to avoid timeout
+  await interaction.deferUpdate();
+  
+  const userId = interaction.customId.split('_').pop();
+  
+  // Get the order session
+  const orderSession = client.activeOrders.get(userId);
+  if (!orderSession) {
+    return interaction.editReply({
+      content: 'Error: Order creation session lost.',
+      components: []
+    });
+  }
+  
+  // Move to level selection step
+  orderSession.step = 'select_level';
+  
+  // Check if user is a super admin
+  const isSuperAdmin = interaction.member.roles.cache.has("1351725292741197976");
+  
+  // Create level selection menu
+  const levelSelectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`select_level_${userId}`)
+        .setPlaceholder('Select difficulty level')
+        .addOptions([
+          { label: 'Level 1 - Easy', value: '1', emoji: '🟩', description: 'Simple project for beginners' },
+          { label: 'Level 2 - Beginner', value: '2', emoji: '🟨', description: 'Some knowledge required' },
+          { label: 'Level 3 - Intermediate', value: '3', emoji: '🟧', description: 'Medium difficulty' },
+          { label: 'Level 4 - Advanced', value: '4', emoji: '🟥', description: 'Complex project' },
+          { label: 'Level 5 - Expert', value: '5', emoji: '🔴', description: 'Expertise required' },
+          // Level 6 only for super admin
+          ...(isSuperAdmin ? [
+            { label: 'Level 6 - Super Expert', value: '6', emoji: '⚫', description: 'Reserved for exceptional projects' }
+          ] : [])
+        ])
+    );
+  
+  await interaction.editReply({
+    content: 'Now, select the difficulty level for this project:',
+    components: [levelSelectRow]
+  });
+}
 
 /**
  * Gère la soumission du Modal pour la création d'offre
@@ -472,7 +630,7 @@ async function handleOrderModalSubmit(interaction, client) {
     
     // Vérification pour le niveau 6 - seul un super administrateur peut créer un projet niveau 6
     const SUPER_ADMIN_ID = "1351725292741197976";
-    if (level === 6 && interaction.member.id !== SUPER_ADMIN_ID) {
+    if (level === 6 && !interaction.member.roles.cache.has(SUPER_ADMIN_ID)) {
       // Si l'utilisateur n'est pas un super admin et tente de créer un projet niveau 6,
       // on limite à 5 et on l'informe
       level = 5;
@@ -632,4 +790,66 @@ async function cancelModalOrder(interaction, client) {
       logger.error('Failed to send error followup:', followupError);
     }
   }
+}
+
+/**
+ * Helper function to categorize roles
+ * @param {Object} guild - Discord guild
+ * @param {String} category - Category name
+ * @returns {Array} - Array of roles in the category
+ */
+function getRolesByCategory(guild, category) {
+  // Define patterns or prefixes for each category
+  const categoryPatterns = {
+    'dev_language': ['javascript', 'python', 'java', 'c#', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin', 'typescript'],
+    'front_end': ['react', 'vue', 'angular', 'svelte', 'html', 'css', 'sass', 'tailwind', 'bootstrap', 'javascript'],
+    'back_end': ['node', 'express', 'django', 'flask', 'spring', 'laravel', 'rails', 'fastapi', 'graphql', 'rest'],
+    'database': ['sql', 'mysql', 'postgresql', 'mongodb', 'firebase', 'supabase', 'dynamodb', 'redis', 'sqlite', 'oracle'],
+    'ui': ['figma', 'sketch', 'adobe', 'design', 'ui', 'ux', 'photoshop', 'illustrator', 'wireframe', 'prototype'],
+    'other': ['git', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'devops', 'testing', 'security', 'agile']
+  };
+  
+  const patterns = categoryPatterns[category] || [];
+  
+  // Skip administrative or system roles
+  const excludedRoleIds = ['1351225002577362977', '1351725292741197976', '1350494624342347878', '1351733161851097160', '1354152839391219794', '1354096392930594817', '1354096374446293132', '1354095959432364042', '1354095959432364042', '1354095928285335704', '1354095899760005303', '1354095863370219622', '1354152891631538227', '1353658097251520533', '1356598917869080586']; 
+  
+  // Filter roles based on category
+  return guild.roles.cache
+    .filter(role => {
+      // Skip managed roles, @everyone role, and excluded roles
+      if (role.managed || role.id === guild.id || excludedRoleIds.includes(role.id)) return false;
+      
+      // Check if role name matches any pattern for this category
+      const roleName = role.name.toLowerCase();
+      
+      // Category-specific checks
+      if (category === 'other') {
+        // For "Other" category, include roles that don't match any other category
+        for (const cat in categoryPatterns) {
+          if (cat === 'other') continue;
+          
+          // If the role matches a pattern in another category, it doesn't belong in "Other"
+          if (categoryPatterns[cat].some(pattern => roleName.includes(pattern))) {
+            return false;
+          }
+        }
+        // If it didn't match any other category, include it in "Other"
+        return true;
+      } else {
+        // For specific categories, check if the role name contains any of the patterns
+        return patterns.some(pattern => roleName.includes(pattern));
+      }
+    })
+    .sort((a, b) => b.position - a.position);
+}
+
+/**
+ * Helper function to format category names for display
+ * @param {String} category - Category name
+ * @returns {String} - Formatted category name
+ */
+function formatCategoryName(category) {
+  const parts = category.split('_');
+  return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
