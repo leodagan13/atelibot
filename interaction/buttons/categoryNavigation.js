@@ -1,5 +1,6 @@
 // interactions/buttons/categoryNavigation.js - Handles category navigation for role selection
 const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const logger = require('../../utils/logger');
 
 /**
  * Handle back to categories button
@@ -7,49 +8,71 @@ const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } 
  * @param {Object} client - Discord client
  */
 async function handleBackToCategories(interaction, client) {
-  // Add debug logging
-  console.log('Button clicked by user:', interaction.user.id);
-  console.log('Active orders before:', Array.from(client.activeOrders.keys()));
-  
   // Defer update to avoid timeout
-  await interaction.deferUpdate();
+  await interaction.deferUpdate().catch(err => logger.error('Error deferring update:', err));
   
+  // Always use interaction.user.id for consistency
   const userId = interaction.user.id;
   
-  console.log('Checking for session with ID:', userId);
-  console.log('Session exists:', client.activeOrders.has(userId));
+  logger.debug(`Button clicked by user: ${userId}`);
+  logger.debug(`Active orders keys: ${Array.from(client.activeOrders.keys())}`);
+  logger.debug(`Session exists: ${client.activeOrders.has(userId)}`);
   
-  // Get the order session with recovery mechanism
-  if (!client.activeOrders.has(userId)) {
-    console.log('Recreating lost session for user:', userId);
+  // Get or create the order session
+  let orderSession = client.activeOrders.get(userId);
+  
+  if (!orderSession) {
+    logger.warn(`Session not found for user: ${userId}. Creating new session.`);
     
-    // Get any previous data from interaction components if possible
-    let previousData = {};
-    try {
-      // Try to extract previous roles from message content
-      const messageContent = interaction.message.content;
-      if (messageContent.includes('Currently selected roles:')) {
-        // Extract role information if available
-        console.log('Attempting to recover session data from message content');
-      }
-    } catch (e) {
-      console.error('Error recovering session data:', e);
-    }
-    
-    // Create a fresh session
-    client.activeOrders.set(userId, {
+    // Create a basic session structure
+    orderSession = {
       step: 'select_role_category',
       data: {
         requiredRoles: [],
-        ...previousData
+        clientName: '',
+        compensation: '',
+        description: '',
+        tags: []
       },
       channelId: interaction.channelId
-    });
+    };
     
-    console.log('New session created:', client.activeOrders.get(userId));
+    // Try to recover any role data from message content
+    try {
+      const messageContent = interaction.message.content;
+      if (messageContent && messageContent.includes('Currently selected roles:')) {
+        const roleList = messageContent.split('Currently selected roles:')[1].trim();
+        const roleLines = roleList.split('\n');
+        
+        for (const line of roleLines) {
+          // Extract role name from "- RoleName" format
+          const roleName = line.replace(/^- /, '').trim();
+          if (roleName) {
+            // Try to find role ID
+            const role = interaction.guild.roles.cache.find(r => r.name === roleName);
+            if (role) {
+              orderSession.data.requiredRoles.push({
+                name: roleName,
+                id: role.id
+              });
+            } else {
+              orderSession.data.requiredRoles.push({
+                name: roleName,
+                id: null
+              });
+            }
+          }
+        }
+        logger.debug(`Recovered ${orderSession.data.requiredRoles.length} roles from message`);
+      }
+    } catch (e) {
+      logger.error('Error recovering session data:', e);
+    }
+    
+    // Save session
+    client.activeOrders.set(userId, orderSession);
+    logger.debug(`New session created for ${userId}`);
   }
-  
-  const orderSession = client.activeOrders.get(userId);
   
   // Recreate the category selection menu
   const categorySelectMenu = new StringSelectMenuBuilder()
@@ -85,29 +108,30 @@ async function handleBackToCategories(interaction, client) {
     : '\n\nNo roles selected yet.';
   
   try {
-    // Make sure we're using the correct method based on the interaction state
-    if (interaction.replied || interaction.deferred) {
-      await interaction.editReply({
-        content: `Select a role category:${selectedRolesText}`,
-        components: [row1, row2]
-      });
-    } else {
+    await interaction.editReply({
+      content: `Select a role category:${selectedRolesText}`,
+      components: [row1, row2]
+    });
+  } catch (error) {
+    logger.error('Error in back to categories handler:', error);
+    try {
+      // If editReply fails, try update instead
       await interaction.update({
         content: `Select a role category:${selectedRolesText}`,
         components: [row1, row2]
       });
-    }
-  } catch (error) {
-    console.error('Error in back to categories handler:', error);
-    // Try one last method if the others fail
-    try {
-      await interaction.followUp({
-        content: `Select a role category:${selectedRolesText}`,
-        components: [row1, row2],
-        ephemeral: true
-      });
-    } catch (followUpError) {
-      console.error('Failed to respond in handleBackToCategories:', followUpError);
+    } catch (updateError) {
+      logger.error('Error with update fallback:', updateError);
+      try {
+        // Last resort
+        await interaction.followUp({
+          content: `Select a role category:${selectedRolesText}`,
+          components: [row1, row2],
+          ephemeral: true
+        });
+      } catch (followUpError) {
+        logger.error('All response methods failed:', followUpError);
+      }
     }
   }
 }

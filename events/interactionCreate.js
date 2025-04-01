@@ -1,4 +1,4 @@
-// events/interactionCreate.js - Updated with category-based role selection
+// events/interactionCreate.js - Updated with session debugging
 
 const { handleOrderAcceptance } = require('../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../interaction/buttons/completeOrder');
@@ -13,11 +13,46 @@ const { PUBLISH_ORDERS_CHANNEL_ID, LEVEL_CHANNELS } = require('../config/config'
 const { orderDB } = require('../database');
 const { createSidebarOrderEmbed, createNotification, getLogoAttachment } = require('../utils/modernEmbedBuilder');
 const { appearance } = require('../config/config');
+const { getRolesByCategory, formatCategoryName } = require('../interaction/utils/roleCategories');
 
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
     try {
+      // Log session state at beginning of interaction
+      logger.debug(`Interaction started - user: ${interaction.user.id}`);
+      if (client.activeOrders) {
+        logger.debug(`Active order sessions: ${Array.from(client.activeOrders.keys()).join(', ')}`);
+      }
+
+      // SESSION DEBUG - Always ensure user has a session if it's a category or role interaction
+      const isRoleProcess = interaction.customId && (
+        interaction.customId.startsWith('select_category_') || 
+        interaction.customId.startsWith('select_roles_') || 
+        interaction.customId.startsWith('back_to_categories_') ||
+        interaction.customId.startsWith('continue_to_level_') ||
+        interaction.customId.startsWith('skip_roles_')
+      );
+      
+      // Recover session if needed for role selection process
+      if (isRoleProcess) {
+        const userId = interaction.user.id;
+        if (!client.activeOrders.has(userId)) {
+          logger.warn(`Session recovery needed for ${userId} - creating new session`);
+          client.activeOrders.set(userId, {
+            step: 'select_role_category',
+            data: {
+              requiredRoles: [],
+              clientName: 'Recovered Session',
+              compensation: 'To be determined',
+              description: 'Session was recovered after being lost.',
+              tags: []
+            },
+            channelId: interaction.channelId
+          });
+        }
+      }
+
       // Handle slash commands
       if (interaction.isChatInputCommand()) {
         const command = client.slashCommands.get(interaction.commandName);
@@ -93,52 +128,51 @@ module.exports = {
           }
           
           // Store these values in the session
-          const orderSession = client.activeOrders.get(userId);
-          if (orderSession) {
-            orderSession.data = {
+          const orderSession = {
+            step: 'select_role_category',
+            data: {
               clientName,
               compensation,
               description,
               tags,
               deadline,
               requiredRoles: []
-            };
-            orderSession.step = 'select_role_category';
-            
-            // Create the category selection menu instead of directly showing all roles
-            const categorySelectMenu = new StringSelectMenuBuilder()
-              .setCustomId(`select_category_${userId}`)
-              .setPlaceholder('Select a role category')
-              .addOptions([
-                { label: 'Dev Language', value: 'dev_language', emoji: '💻' },
-                { label: 'Front End', value: 'front_end', emoji: '🖥️' },
-                { label: 'Back End', value: 'back_end', emoji: '⚙️' },
-                { label: 'Database', value: 'database', emoji: '🗄️' },
-                { label: 'UI', value: 'ui', emoji: '🎨' },
-                { label: 'Other', value: 'other', emoji: '📦' }
-              ]);
-            
-            // Add a "Skip" button for users who don't want to select roles
-            const skipButton = new ButtonBuilder()
-              .setCustomId(`skip_roles_${userId}`)
-              .setLabel('Skip Role Selection')
-              .setStyle(ButtonStyle.Secondary);
-            
-            const row1 = new ActionRowBuilder().addComponents(categorySelectMenu);
-            const row2 = new ActionRowBuilder().addComponents(skipButton);
+            },
+            channelId: interaction.channelId
+          };
+          
+          // Save session
+          client.activeOrders.set(userId, orderSession);
+          logger.debug(`Created order session for ${userId}: ${JSON.stringify(orderSession)}`);
+          
+          // Create the category selection menu instead of directly showing all roles
+          const categorySelectMenu = new StringSelectMenuBuilder()
+            .setCustomId(`select_category_${userId}`)
+            .setPlaceholder('Select a role category')
+            .addOptions([
+              { label: 'Dev Language', value: 'dev_language', emoji: '💻' },
+              { label: 'Front End', value: 'front_end', emoji: '🖥️' },
+              { label: 'Back End', value: 'back_end', emoji: '⚙️' },
+              { label: 'Database', value: 'database', emoji: '🗄️' },
+              { label: 'UI', value: 'ui', emoji: '🎨' },
+              { label: 'Other', value: 'other', emoji: '📦' }
+            ]);
+          
+          // Add a "Skip" button for users who don't want to select roles
+          const skipButton = new ButtonBuilder()
+            .setCustomId(`skip_roles_${userId}`)
+            .setLabel('Skip Role Selection')
+            .setStyle(ButtonStyle.Secondary);
+          
+          const row1 = new ActionRowBuilder().addComponents(categorySelectMenu);
+          const row2 = new ActionRowBuilder().addComponents(skipButton);
 
-            // Respond with the category selection menu
-            await interaction.reply({
-              content: 'First, select a role category:',
-              components: [row1, row2],
-              ephemeral: true
-            });
-          } else {
-            await interaction.reply({
-              content: 'An error occurred: creation session lost.',
-              ephemeral: true
-            });
-          }
+          // Respond with the category selection menu
+          await interaction.reply({
+            content: 'First, select a role category:',
+            components: [row1, row2],
+            ephemeral: true
+          });
         }
         
         // Handle order confirmation modal
@@ -244,26 +278,244 @@ module.exports = {
         try {
           const menuId = interaction.customId;
           
-          // Handle order status updates
-          if (menuId.startsWith('order_status_')) {
-            const orderId = menuId.replace('order_status_', '');
-            await handleOrderStatusUpdate(interaction, orderId);
+          // Handle category selection - DIRECT IMPLEMENTATION
+          if (menuId.startsWith('select_category_')) {
+            // Defer update to avoid timeout
+            await interaction.deferUpdate();
+            
+            const userId = interaction.user.id;
+            const category = interaction.values[0];
+            
+            logger.debug(`Category selected: ${category} by user ${userId}`);
+            
+            // Get order session - with auto-recovery
+            let orderSession = client.activeOrders.get(userId);
+            if (!orderSession) {
+              logger.warn(`No session found for user ${userId} in category selection. Creating recovery session.`);
+              orderSession = {
+                step: 'select_role_category',
+                data: {
+                  requiredRoles: [],
+                  clientName: 'Recovered Session',
+                  compensation: 'To be determined',
+                  description: 'Session was recovered after being lost.',
+                  tags: []
+                },
+                channelId: interaction.channelId
+              };
+              client.activeOrders.set(userId, orderSession);
+            }
+            
+            // Get roles for the selected category
+            const roles = getRolesByCategory(interaction.guild, category);
+            
+            // Create role selection menu
+            const roleSelectMenu = new StringSelectMenuBuilder()
+              .setCustomId(`select_roles_${category}_${userId}`)
+              .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
+              .setMinValues(0)
+              .setMaxValues(20);
+            
+            // Add roles as options (limit to 25 which is Discord's max)
+            const roleOptions = roles.slice(0, 25).map(role => ({
+              label: role.name,
+              value: role.id,
+              emoji: role.unicodeEmoji || undefined
+            }));
+            
+            // If no roles in category, add a placeholder option
+            if (roleOptions.length === 0) {
+              roleOptions.push({
+                label: 'No roles in this category',
+                value: 'no_roles',
+                default: true
+              });
+            }
+            
+            roleSelectMenu.addOptions(roleOptions);
+            
+            // Create navigation buttons
+            const backButton = new ButtonBuilder()
+              .setCustomId(`back_to_categories_${userId}`)
+              .setLabel('Back to Categories')
+              .setStyle(ButtonStyle.Secondary);
+            
+            const continueButton = new ButtonBuilder()
+              .setCustomId(`continue_to_level_${userId}`)
+              .setLabel('Continue to Next Step')
+              .setStyle(ButtonStyle.Primary);
+            
+            const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
+            const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
+            
+            // Show current selections, if any
+            const selectedRoles = orderSession.data.requiredRoles || [];
+            const selectedRolesText = selectedRoles.length > 0 
+              ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
+              : '';
+            
+            await interaction.editReply({
+              content: `Select roles from the ${formatCategoryName(category)} category:${selectedRolesText}`,
+              components: [row1, row2]
+            });
           } 
           
-          // Handle category selection for role selection
-          else if (menuId.startsWith('select_category_')) {
-            await handleCategorySelection(interaction, client);
-          }
-          
-          // Handle role selection from a category
+          // Handle role selection - DIRECT IMPLEMENTATION
           else if (menuId.startsWith('select_roles_')) {
-            await handleRoleSelection(interaction, client);
+            // Defer update to avoid timeout
+            await interaction.deferUpdate();
+            
+            const parts = interaction.customId.split('_');
+            const category = parts[2];
+            const userId = interaction.user.id; // Use user.id for consistency
+            const selectedRoleIds = interaction.values;
+            
+            logger.debug(`Role selection in ${category} by user ${userId}`);
+            
+            // Skip if "no_roles" placeholder was selected
+            if (selectedRoleIds.includes('no_roles')) {
+              return;
+            }
+            
+            // Get the order session with auto-recovery
+            let orderSession = client.activeOrders.get(userId);
+            if (!orderSession) {
+              logger.warn(`No session found for user ${userId} in role selection. Creating recovery session.`);
+              orderSession = {
+                step: 'select_role_category',
+                data: {
+                  requiredRoles: [],
+                  clientName: 'Recovered Session',
+                  compensation: 'To be determined',
+                  description: 'Session was recovered after being lost.',
+                  tags: []
+                },
+                channelId: interaction.channelId
+              };
+              client.activeOrders.set(userId, orderSession);
+            }
+            
+            // Initialize requiredRoles array if it doesn't exist
+            if (!orderSession.data.requiredRoles) {
+              orderSession.data.requiredRoles = [];
+            }
+            
+            // Process selected roles
+            for (const roleId of selectedRoleIds) {
+              const role = interaction.guild.roles.cache.get(roleId);
+              if (role) {
+                // Check if role is already selected
+                const existingIndex = orderSession.data.requiredRoles.findIndex(r => r.id === roleId);
+                
+                if (existingIndex >= 0) {
+                  // Role already exists, do nothing
+                } else {
+                  // Add new role
+                  orderSession.data.requiredRoles.push({
+                    id: roleId,
+                    name: role.name
+                  });
+                }
+              }
+            }
+            
+            // Save session
+            client.activeOrders.set(userId, orderSession);
+            
+            // Refresh the current category view
+            const roles = getRolesByCategory(interaction.guild, category);
+            
+            // Create role selection menu
+            const roleSelectMenu = new StringSelectMenuBuilder()
+              .setCustomId(`select_roles_${category}_${userId}`)
+              .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
+              .setMinValues(0)
+              .setMaxValues(20);
+            
+            // Add roles as options (limit to 25 which is Discord's max)
+            const roleOptions = roles.slice(0, 25).map(role => ({
+              label: role.name,
+              value: role.id,
+              emoji: role.unicodeEmoji || undefined,
+              // Mark as default if already selected
+              default: orderSession.data.requiredRoles.some(r => r.id === role.id)
+            }));
+            
+            if (roleOptions.length === 0) {
+              roleOptions.push({
+                label: 'No roles in this category',
+                value: 'no_roles',
+                default: true
+              });
+            }
+            
+            roleSelectMenu.addOptions(roleOptions);
+            
+            // Create navigation buttons
+            const backButton = new ButtonBuilder()
+              .setCustomId(`back_to_categories_${userId}`)
+              .setLabel('Back to Categories')
+              .setStyle(ButtonStyle.Secondary);
+            
+            const continueButton = new ButtonBuilder()
+              .setCustomId(`continue_to_level_${userId}`)
+              .setLabel('Continue to Next Step')
+              .setStyle(ButtonStyle.Primary);
+            
+            const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
+            const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
+            
+            // Show current selections
+            const selectedRoles = orderSession.data.requiredRoles || [];
+            const selectedRolesText = selectedRoles.length > 0 
+              ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
+              : '';
+            
+            await interaction.editReply({
+              content: `Role(s) selected! Select more from the ${formatCategoryName(category)} category or navigate using the buttons below.${selectedRolesText}`,
+              components: [row1, row2]
+            });
           }
           
-          // Handle level selection
+          // Handle order status updates
+          else if (menuId.startsWith('order_status_')) {
+            const orderId = menuId.replace('order_status_', '');
+            await handleOrderStatusUpdate(interaction, orderId);
+          }
+          
+          // Handle level selection - DIRECT IMPLEMENTATION
           else if (menuId.startsWith('select_level_')) {
-            // This is handled by the existing code in the interactionCreate.js file
-            // Let it pass through to the existing handler
+            // Get user ID and level
+            const userId = interaction.user.id;
+            const selectedLevel = interaction.values[0];
+            
+            logger.debug(`Level ${selectedLevel} selected by user ${userId}`);
+            
+            // Get user's session with auto-recovery
+            let orderSession = client.activeOrders.get(userId);
+            if (!orderSession) {
+              logger.warn(`No session found for user ${userId} in level selection. Creating recovery session.`);
+              orderSession = {
+                step: 'select_role_category',
+                data: {
+                  requiredRoles: [],
+                  clientName: 'Recovered Session',
+                  compensation: 'To be determined',
+                  description: 'Session was recovered after being lost.',
+                  tags: [],
+                  level: parseInt(selectedLevel)
+                },
+                channelId: interaction.channelId
+              };
+              client.activeOrders.set(userId, orderSession);
+            }
+            
+            // Store the selected level
+            orderSession.data.level = parseInt(selectedLevel);
+            client.activeOrders.set(userId, orderSession);
+            
+            // Create the order creation modal
+            await showOrderModal(interaction, userId, orderSession);
           } 
           
           else {
@@ -315,196 +567,71 @@ module.exports = {
 };
 
 /**
- * Handle selection of a role category
+ * Show the order creation modal
  * @param {Object} interaction - Interaction object
- * @param {Object} client - Discord client
+ * @param {String} userId - User ID
+ * @param {Object} orderSession - Order session data
  */
-async function handleCategorySelection(interaction, client) {
-  // Defer update to avoid timeout
-  await interaction.deferUpdate();
+async function showOrderModal(interaction, userId, orderSession) {
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
   
-  const userId = interaction.customId.split('_').pop();
-  const category = interaction.values[0];
+  // Create the order creation modal
+  const modal = new ModalBuilder()
+    .setCustomId(`create_order_modal_${userId}`)
+    .setTitle('Confirm Order Details');
   
-  // Get the order session
-  const orderSession = client.activeOrders.get(userId);
-  if (!orderSession) {
-    return interaction.editReply({
-      content: 'Error: Order creation session lost.',
-      components: []
-    });
-  }
+  // Add form fields with pre-filled values from session
+  const clientNameInput = new TextInputBuilder()
+    .setCustomId('clientName')
+    .setLabel('Client Name (Confidential)')
+    .setValue(orderSession.data.clientName || '')
+    .setRequired(true)
+    .setStyle(TextInputStyle.Short);
   
-  // Get roles for the selected category
-  const roles = getRolesByCategory(interaction.guild, category);
+  const compensationInput = new TextInputBuilder()
+    .setCustomId('compensation')
+    .setLabel('Compensation for Developer')
+    .setValue(orderSession.data.compensation || '')
+    .setRequired(true)
+    .setStyle(TextInputStyle.Short);
   
-  // Create role selection menu
-  const roleSelectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_roles_${category}_${userId}`)
-    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
-    .setMinValues(0)
-    .setMaxValues(20);
+  const descriptionInput = new TextInputBuilder()
+    .setCustomId('description')
+    .setLabel('Project Description')
+    .setValue(orderSession.data.description || '')
+    .setRequired(true)
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(1000);
   
-  // Add roles as options (limit to 25 which is Discord's max)
-  const roleOptions = roles.slice(0, 25).map(role => ({
-    label: role.name,
-    value: role.id,
-    emoji: role.unicodeEmoji || undefined
-  }));
+  const tagsInput = new TextInputBuilder()
+    .setCustomId('tags')
+    .setLabel('Tags (comma separated)')
+    .setValue(orderSession.data.tags ? orderSession.data.tags.join(', ') : '')
+    .setRequired(false)
+    .setStyle(TextInputStyle.Short);
   
-  // If no roles in category, add a placeholder option
-  if (roleOptions.length === 0) {
-    roleOptions.push({
-      label: 'No roles in this category',
-      value: 'no_roles',
-      default: true
-    });
-  }
+  // Format required roles for display
+  const requiredRolesText = orderSession.data.requiredRoles?.map(r => r.name).join(', ') || '';
   
-  if (roleOptions.length < 20) {
-    // Add dummy options to reach minimum
-    for (let i = roleOptions.length; i < 20; i++) {
-      roleOptions.push({
-        label: `No selection ${i}`,
-        value: `no_selection_${i}`,
-        default: false
-      });
-    }
-  }
+  const requiredRolesInput = new TextInputBuilder()
+    .setCustomId('requiredRoles')
+    .setLabel('Required Roles (comma separated)')
+    .setValue(requiredRolesText)
+    .setRequired(false)
+    .setStyle(TextInputStyle.Short);
   
-  roleSelectMenu.addOptions(roleOptions);
+  // Create rows for the modal
+  const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
+  const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
+  const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
+  const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
+  const requiredRolesRow = new ActionRowBuilder().addComponents(requiredRolesInput);
   
-  // Create navigation buttons
-  const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_categories_${userId}`)
-    .setLabel('Back to Categories')
-    .setStyle(ButtonStyle.Secondary);
+  // Add rows to modal
+  modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, requiredRolesRow);
   
-  const continueButton = new ButtonBuilder()
-    .setCustomId(`continue_to_level_${userId}`)
-    .setLabel('Continue to Next Step')
-    .setStyle(ButtonStyle.Primary);
-  
-  const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
-  const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
-  
-  // Show current selections, if any
-  const selectedRoles = orderSession.data.requiredRoles || [];
-  const selectedRolesText = selectedRoles.length > 0 
-    ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
-    : '';
-  
-  await interaction.editReply({
-    content: `Select roles from the ${formatCategoryName(category)} category:${selectedRolesText}`,
-    components: [row1, row2]
-  });
-}
-
-/**
- * Handle role selection from a category
- * @param {Object} interaction - Interaction object
- * @param {Object} client - Discord client
- */
-async function handleRoleSelection(interaction, client) {
-  // Defer update to avoid timeout
-  await interaction.deferUpdate();
-  
-  const parts = interaction.customId.split('_');
-  const category = parts[2];
-  const userId = parts[3];
-  const selectedRoleIds = interaction.values;
-  
-  // Skip if "no_roles" placeholder was selected
-  if (selectedRoleIds.includes('no_roles')) {
-    return;
-  }
-  
-  // Get the order session
-  const orderSession = client.activeOrders.get(userId);
-  if (!orderSession) {
-    return interaction.editReply({
-      content: 'Error: Order creation session lost.',
-      components: []
-    });
-  }
-  
-  // Initialize requiredRoles array if it doesn't exist
-  if (!orderSession.data.requiredRoles) {
-    orderSession.data.requiredRoles = [];
-  }
-  
-  // Process selected roles
-  for (const roleId of selectedRoleIds) {
-    const role = interaction.guild.roles.cache.get(roleId);
-    if (role) {
-      // Check if role is already selected
-      const existingIndex = orderSession.data.requiredRoles.findIndex(r => r.id === roleId);
-      
-      if (existingIndex >= 0) {
-        // Role already exists, do nothing
-      } else {
-        // Add new role
-        orderSession.data.requiredRoles.push({
-          id: roleId,
-          name: role.name
-        });
-      }
-    }
-  }
-  
-  // Refresh the current category view
-  const roles = getRolesByCategory(interaction.guild, category);
-  
-  // Create role selection menu
-  const roleSelectMenu = new StringSelectMenuBuilder()
-    .setCustomId(`select_roles_${category}_${userId}`)
-    .setPlaceholder(`Select ${formatCategoryName(category)} roles (max 20)`)
-    .setMinValues(0)
-    .setMaxValues(20);
-  
-  // Add roles as options (limit to 25 which is Discord's max)
-  const roleOptions = roles.slice(0, 25).map(role => ({
-    label: role.name,
-    value: role.id,
-    emoji: role.unicodeEmoji || undefined,
-    // Mark as default if already selected
-    default: orderSession.data.requiredRoles.some(r => r.id === role.id)
-  }));
-  
-  if (roleOptions.length === 0) {
-    roleOptions.push({
-      label: 'No roles in this category',
-      value: 'no_roles',
-      default: true
-    });
-  }
-  
-  roleSelectMenu.addOptions(roleOptions);
-  
-  // Create navigation buttons
-  const backButton = new ButtonBuilder()
-    .setCustomId(`back_to_categories_${userId}`)
-    .setLabel('Back to Categories')
-    .setStyle(ButtonStyle.Secondary);
-  
-  const continueButton = new ButtonBuilder()
-    .setCustomId(`continue_to_level_${userId}`)
-    .setLabel('Continue to Next Step')
-    .setStyle(ButtonStyle.Primary);
-  
-  const row1 = new ActionRowBuilder().addComponents(roleSelectMenu);
-  const row2 = new ActionRowBuilder().addComponents(backButton, continueButton);
-  
-  // Show current selections
-  const selectedRoles = orderSession.data.requiredRoles || [];
-  const selectedRolesText = selectedRoles.length > 0 
-    ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
-    : '';
-  
-  await interaction.editReply({
-    content: `Role(s) selected! Select more from the ${formatCategoryName(category)} category or navigate using the buttons below.${selectedRolesText}`,
-    components: [row1, row2]
-  });
+  // Show the modal
+  await interaction.showModal(modal);
 }
 
 /**
@@ -513,49 +640,31 @@ async function handleRoleSelection(interaction, client) {
  * @param {Object} client - Discord client
  */
 async function handleBackToCategories(interaction, client) {
-  // Add debug logging
-  console.log('Button clicked by user:', interaction.user.id);
-  console.log('Active orders before:', Array.from(client.activeOrders.keys()));
-  
   // Defer update to avoid timeout
   await interaction.deferUpdate();
   
   const userId = interaction.user.id;
   
-  console.log('Checking for session with ID:', userId);
-  console.log('Session exists:', client.activeOrders.has(userId));
+  logger.debug(`Back to categories clicked by user: ${userId}`);
   
-  // Get the order session with recovery mechanism
-  if (!client.activeOrders.has(userId)) {
-    console.log('Recreating lost session for user:', userId);
-    
-    // Get any previous data from interaction components if possible
-    let previousData = {};
-    try {
-      // Try to extract previous roles from message content
-      const messageContent = interaction.message.content;
-      if (messageContent.includes('Currently selected roles:')) {
-        // Extract role information if available
-        console.log('Attempting to recover session data from message content');
-      }
-    } catch (e) {
-      console.error('Error recovering session data:', e);
-    }
-    
-    // Create a fresh session
-    client.activeOrders.set(userId, {
+  // Get or create the order session
+  let orderSession = client.activeOrders.get(userId);
+  
+  if (!orderSession) {
+    logger.warn(`No session found for user ${userId} in back to categories. Creating recovery session.`);
+    orderSession = {
       step: 'select_role_category',
       data: {
         requiredRoles: [],
-        ...previousData
+        clientName: 'Recovered Session',
+        compensation: 'To be determined',
+        description: 'Session was recovered after being lost.',
+        tags: []
       },
       channelId: interaction.channelId
-    });
-    
-    console.log('New session created:', client.activeOrders.get(userId));
+    };
+    client.activeOrders.set(userId, orderSession);
   }
-  
-  const orderSession = client.activeOrders.get(userId);
   
   // Recreate the category selection menu
   const categorySelectMenu = new StringSelectMenuBuilder()
@@ -590,32 +699,10 @@ async function handleBackToCategories(interaction, client) {
     ? `\n\nCurrently selected roles:\n${selectedRoles.map(r => `- ${r.name}`).join('\n')}`
     : '\n\nNo roles selected yet.';
   
-  try {
-    // Make sure we're using the correct method based on the interaction state
-    if (interaction.replied || interaction.deferred) {
-      await interaction.editReply({
-        content: `Select a role category:${selectedRolesText}`,
-        components: [row1, row2]
-      });
-    } else {
-      await interaction.update({
-        content: `Select a role category:${selectedRolesText}`,
-        components: [row1, row2]
-      });
-    }
-  } catch (error) {
-    console.error('Error in back to categories handler:', error);
-    // Try one last method if the others fail
-    try {
-      await interaction.followUp({
-        content: `Select a role category:${selectedRolesText}`,
-        components: [row1, row2],
-        ephemeral: true
-      });
-    } catch (followUpError) {
-      console.error('Failed to respond in handleBackToCategories:', followUpError);
-    }
-  }
+  await interaction.editReply({
+    content: `Select a role category:${selectedRolesText}`,
+    components: [row1, row2]
+  });
 }
 
 /**
@@ -627,15 +714,27 @@ async function handleContinueToLevel(interaction, client) {
   // Defer update to avoid timeout
   await interaction.deferUpdate();
   
-  const userId = interaction.customId.split('_').pop();
+  const userId = interaction.user.id;
   
-  // Get the order session
-  const orderSession = client.activeOrders.get(userId);
+  logger.debug(`Continue to level clicked by user: ${userId}`);
+  
+  // Get or create the order session
+  let orderSession = client.activeOrders.get(userId);
+  
   if (!orderSession) {
-    return interaction.editReply({
-      content: 'Error: Order creation session lost.',
-      components: []
-    });
+    logger.warn(`No session found for user ${userId} in continue to level. Creating recovery session.`);
+    orderSession = {
+      step: 'select_level',
+      data: {
+        requiredRoles: [],
+        clientName: 'Recovered Session',
+        compensation: 'To be determined',
+        description: 'Session was recovered after being lost.',
+        tags: []
+      },
+      channelId: interaction.channelId
+    };
+    client.activeOrders.set(userId, orderSession);
   }
   
   // If this is a skip_roles action, ensure an empty requiredRoles array
@@ -645,6 +744,7 @@ async function handleContinueToLevel(interaction, client) {
   
   // Move to level selection step
   orderSession.step = 'select_level';
+  client.activeOrders.set(userId, orderSession);
   
   // Check if user is a super admin
   const isSuperAdmin = interaction.member.roles.cache.has("1351725292741197976");
@@ -858,66 +958,4 @@ async function cancelModalOrder(interaction, client) {
       logger.error('Failed to send error followup:', followupError);
     }
   }
-}
-
-/**
- * Helper function to categorize roles
- * @param {Object} guild - Discord guild
- * @param {String} category - Category name
- * @returns {Array} - Array of roles in the category
- */
-function getRolesByCategory(guild, category) {
-  // Define patterns or prefixes for each category
-  const categoryPatterns = {
-    'dev_language': ['javascript', 'python', 'java', 'c#', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin', 'typescript'],
-    'front_end': ['react', 'vue', 'angular', 'svelte', 'html', 'css', 'sass', 'tailwind', 'bootstrap', 'javascript'],
-    'back_end': ['node', 'express', 'django', 'flask', 'spring', 'laravel', 'rails', 'fastapi', 'graphql', 'rest'],
-    'database': ['sql', 'mysql', 'postgresql', 'mongodb', 'firebase', 'supabase', 'dynamodb', 'redis', 'sqlite', 'oracle'],
-    'ui': ['figma', 'sketch', 'adobe', 'design', 'ui', 'ux', 'photoshop', 'illustrator', 'wireframe', 'prototype'],
-    'other': ['git', 'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'devops', 'testing', 'security', 'agile']
-  };
-  
-  const patterns = categoryPatterns[category] || [];
-  
-  // Skip administrative or system roles
-  const excludedRoleIds = ['1351225002577362977', '1351725292741197976', '1350494624342347878', '1351733161851097160', '1354152839391219794', '1354096392930594817', '1354096374446293132', '1354095959432364042', '1354095959432364042', '1354095928285335704', '1354095899760005303', '1354095863370219622', '1354152891631538227', '1353658097251520533', '1356598917869080586']; 
-  
-  // Convert Collection to Array first
-  return Array.from(guild.roles.cache.values())
-    .filter(role => {
-      // Skip managed roles, @everyone role, and excluded roles
-      if (role.managed || role.id === guild.id || excludedRoleIds.includes(role.id)) return false;
-      
-      // Check if role name matches any pattern for this category
-      const roleName = role.name.toLowerCase();
-      
-      // Category-specific checks
-      if (category === 'other') {
-        // For "Other" category, include roles that don't match any other category
-        for (const cat in categoryPatterns) {
-          if (cat === 'other') continue;
-          
-          // If the role matches a pattern in another category, it doesn't belong in "Other"
-          if (categoryPatterns[cat].some(pattern => roleName.includes(pattern))) {
-            return false;
-          }
-        }
-        // If it didn't match any other category, include it in "Other"
-        return true;
-      } else {
-        // For specific categories, check if the role name contains any of the patterns
-        return patterns.some(pattern => roleName.includes(pattern));
-      }
-    })
-    .sort((a, b) => b.position - a.position);
-}
-
-/**
- * Helper function to format category names for display
- * @param {String} category - Category name
- * @returns {String} - Formatted category name
- */
-function formatCategoryName(category) {
-  const parts = category.split('_');
-  return parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }

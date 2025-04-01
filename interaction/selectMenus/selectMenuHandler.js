@@ -52,4 +52,6 @@ async function handleSelectMenuInteraction(interaction, client) {
   }
 }
 
-module.exports = { handleSelectMenuInteraction };
+module.exports = {
+    handleRoleSelection
+};

@@ -106,4 +106,7 @@ async function handleButtonInteraction(interaction, client) {
   }
 }
 
-module.exports = { handleButtonInteraction };
+module.exports = {
+    handleBackToCategories,
+    handleButtonInteraction
+};
