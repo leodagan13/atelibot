@@ -234,7 +234,7 @@ function createSidebarOrderEmbed(order) {
   const row = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId(`accept_order_${order.orderid}`)
+        .setCustomId(`confirm_modal_order_${order.orderid}`)
         .setLabel('Accept this Project')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('✅')
