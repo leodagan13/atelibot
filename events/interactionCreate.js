@@ -922,7 +922,7 @@ async function handleOrderModalSubmit(interaction, client) {
     const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
     
     // Create embed for preview
-    const { embed, row } = createSidebarOrderEmbed(orderData);
+    const { embed, row } = createSidebarOrderEmbed(orderData, true);
     const logoAttachment = getLogoAttachment();
     
     // Store order data temporarily

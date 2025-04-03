@@ -110,7 +110,7 @@ async function handleOrderConfirmationModal(interaction, client) {
     const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
     
     // Create embed for preview
-    const { embed, row } = createSidebarOrderEmbed(orderData);
+    const { embed, row } = createSidebarOrderEmbed(orderData, true);
     const logoAttachment = getLogoAttachment();
     
     // Update session with the latest data
