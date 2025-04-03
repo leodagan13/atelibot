@@ -76,23 +76,41 @@ module.exports = {
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
-        // Combiner deadline et niveau dans un seul champ
-        const deadlineInput = new TextInputBuilder()
-          .setCustomId('deadline')
-          .setLabel('Deadline (YYYY-MM-DD)')
-          .setPlaceholder('Ex: 2025-04-15')
+        // Year input
+        const yearInput = new TextInputBuilder()
+          .setCustomId('year')
+          .setLabel('Year (YYYY)')
+          .setPlaceholder('2025')
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
-        // Organisation des champs en lignes (maximum 5)
+        // Month input
+        const monthInput = new TextInputBuilder()
+          .setCustomId('month')
+          .setLabel('Month (MM)')
+          .setPlaceholder('04')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short);
+
+        // Day input
+        const dayInput = new TextInputBuilder()
+          .setCustomId('day')
+          .setLabel('Day (DD)')
+          .setPlaceholder('15')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short);
+
+        // Create rows for each input
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
         const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
-        const deadlineRow = new ActionRowBuilder().addComponents(deadlineInput);
+        const yearRow = new ActionRowBuilder().addComponents(yearInput);
+        const monthRow = new ActionRowBuilder().addComponents(monthInput);
+        const dayRow = new ActionRowBuilder().addComponents(dayInput);
 
-        // Ajout des lignes au modal (5 maximum)
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, deadlineRow);
+        // Add all rows to the modal
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, yearRow, monthRow, dayRow);
 
         // Afficher le modal
         await interaction.showModal(modal);

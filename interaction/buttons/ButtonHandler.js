@@ -9,7 +9,9 @@ const { handleBackToCategories } = require('./categoryNavigation');
 const { handleContinueToLevel } = require('./levelNavigation');
 const { cancelModalOrder } = require('./orderCancellation');
 const { cleanupOrderSession } = require('../../utils/orderSessionManager');
+const { handleDateContinue, dateSelections } = require('../../utils/dateSelection');
 const logger = require('../../utils/logger');
+const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 
 /**
  * Handles button interactions
@@ -71,6 +73,46 @@ async function handleButtonInteraction(interaction, client) {
     // Handle skipping role selection or continuing to next step
     else if (buttonId.startsWith('skip_roles_') || buttonId.startsWith('continue_to_level_')) {
       await handleContinueToLevel(interaction, client);
+    }
+    
+    // Handle date continue button
+    else if (buttonId.startsWith('date_continue_')) {
+      await handleDateContinue(interaction, client);
+    }
+    
+    // Handle date day button selection
+    else if (buttonId.startsWith('date_day_')) {
+      const parts = buttonId.split('_');
+      const selectedDay = parts[2];
+      const userId = parts[3];
+      
+      // Get user's selection
+      const userSelection = dateSelections.get(userId);
+      userSelection.day = parseInt(selectedDay);
+      
+      // Format the final date in YYYY-MM-DD format
+      const formattedDate = `${userSelection.year}-${userSelection.month.toString().padStart(2, '0')}-${userSelection.day.toString().padStart(2, '0')}`;
+      
+      // Get the order session
+      const orderSession = client.activeOrders.get(userId);
+      if (orderSession) {
+        // Store the date in the session
+        orderSession.data.deadline = formattedDate;
+        client.activeOrders.set(userId, orderSession);
+      }
+      
+      // Show success message with continue button
+      const continueButton = new ButtonBuilder()
+        .setCustomId(`date_continue_${userId}`)
+        .setLabel('Continue')
+        .setStyle(ButtonStyle.Success);
+      
+      const buttonRow = new ActionRowBuilder().addComponents(continueButton);
+      
+      await interaction.update({
+        content: `✅ Date set successfully: **${formattedDate}**\n\nThis date will be used as the project deadline. Click "Continue" to proceed.`,
+        components: [buttonRow]
+      });
     }
     
     // Confirmation d'ordre - ancienne méthode  

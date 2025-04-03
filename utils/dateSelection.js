@@ -166,69 +166,27 @@ function createDaySelectionComponents(userId, daysInMonth, userSelection) {
     .setPlaceholder('Select Month')
     .addOptions(monthOptions);
   
-  // Create arrays for day options - split into groups of 25 max
-  const components = [
-    new ActionRowBuilder().addComponents(yearSelect),
-    new ActionRowBuilder().addComponents(monthSelect)
-  ];
-  
-  // For months with 25 days or less, use a single select menu
-  if (daysInMonth <= 25) {
-    const dayOptions = [];
-    for (let i = 1; i <= daysInMonth; i++) {
-      dayOptions.push({
-        label: `${i}`,
-        value: `${i}`,
-        description: getDayOrdinal(i)
-      });
-    }
-    
-    const daySelect = new StringSelectMenuBuilder()
-      .setCustomId(`date_day_${userId}`)
-      .setPlaceholder('Select Day')
-      .addOptions(dayOptions);
-    
-    components.push(new ActionRowBuilder().addComponents(daySelect));
-  } 
-  // For months with more than 25 days, split into two select menus
-  else {
-    // First part: days 1-25
-    const dayOptionsPart1 = [];
-    for (let i = 1; i <= 25; i++) {
-      dayOptionsPart1.push({
-        label: `${i}`,
-        value: `${i}`,
-        description: getDayOrdinal(i)
-      });
-    }
-    
-    // Second part: days 26+
-    const dayOptionsPart2 = [];
-    for (let i = 26; i <= daysInMonth; i++) {
-      dayOptionsPart2.push({
-        label: `${i}`,
-        value: `${i}`,
-        description: getDayOrdinal(i)
-      });
-    }
-    
-    const daySelectPart1 = new StringSelectMenuBuilder()
-      .setCustomId(`date_day_part1_${userId}`)
-      .setPlaceholder('Select Day (1-25)')
-      .addOptions(dayOptionsPart1);
-    
-    const daySelectPart2 = new StringSelectMenuBuilder()
-      .setCustomId(`date_day_part2_${userId}`)
-      .setPlaceholder(`Select Day (26-${daysInMonth})`)
-      .addOptions(dayOptionsPart2);
-    
-    components.push(
-      new ActionRowBuilder().addComponents(daySelectPart1),
-      new ActionRowBuilder().addComponents(daySelectPart2)
-    );
+  // For days, create a single select menu with all days as options
+  const dayOptions = [];
+  for (let i = 1; i <= daysInMonth; i++) {
+    dayOptions.push({
+      label: `${i}`,
+      value: `${i}`,
+      description: getDayOrdinal(i)
+    });
   }
   
-  return components;
+  const daySelect = new StringSelectMenuBuilder()
+    .setCustomId(`date_day_${userId}`)
+    .setPlaceholder('Select Day')
+    .addOptions(dayOptions);
+  
+  // Return all three rows (year, month, day)
+  return [
+    new ActionRowBuilder().addComponents(yearSelect),
+    new ActionRowBuilder().addComponents(monthSelect),
+    new ActionRowBuilder().addComponents(daySelect)
+  ];
 }
 
 /**

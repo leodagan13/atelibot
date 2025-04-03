@@ -1,5 +1,6 @@
 // interactions/selectMenus/selectMenuHandler.js - Handles select menu interactions
 const { handleOrderStatusUpdate } = require('../../interaction/selectMenus/orderStatus');
+const { handleYearOrMonthSelection, handleDaySelection, dateSelections } = require('../../utils/dateSelection');
 const { handleCategorySelection } = require('./categorySelection.js');
 const { handleLevelSelection } = require('./levelSelection');
 const { cleanupOrderSession } = require('../../utils/orderSessionManager');
@@ -138,6 +139,15 @@ async function handleSelectMenuInteraction(interaction, client) {
     else if (menuId.startsWith('select_level_')) {
       await handleLevelSelection(interaction, client);
     } 
+    
+    // Handle date year/month selection
+    else if (menuId.startsWith('date_year_') || menuId.startsWith('date_month_')) {
+      await handleYearOrMonthSelection(interaction, client);
+    }
+    // Handle date day selection
+    else if (menuId.startsWith('date_day_')) {
+      await handleDaySelection(interaction, client);
+    }
     
     else {
       logger.warn(`Unrecognized string select menu customId: ${menuId}`);
