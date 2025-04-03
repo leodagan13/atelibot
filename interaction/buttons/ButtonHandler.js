@@ -8,6 +8,7 @@ const { handleRatingVote } = require('../../interaction/ratings/projectRating');
 const { handleBackToCategories } = require('./categoryNavigation');
 const { handleContinueToLevel } = require('./levelNavigation');
 const { cancelModalOrder } = require('./orderCancellation');
+const { cleanupOrderSession } = require('../../utils/orderSessionManager');
 const logger = require('../../utils/logger');
 
 /**
@@ -20,6 +21,8 @@ async function handleButtonInteraction(interaction, client) {
   const buttonId = interaction.customId;
   
   try {
+    logger.debug(`Processing button interaction: ${buttonId}`);
+    
     // Gestion des boutons de notation (commençant par 'rate_')
     if (buttonId.startsWith('rate_')) {
       await handleRatingVote(interaction);
@@ -86,8 +89,16 @@ async function handleButtonInteraction(interaction, client) {
     else {
       logger.warn(`Unrecognized button customId: ${buttonId}`);
     }
+    
+    logger.debug(`Button interaction completed: ${buttonId}`);
+    
   } catch (error) {
     logger.error(`Error handling button interaction (${buttonId}):`, error);
+    
+    // Clean up the session to prevent issues if there was an error
+    if (interaction.user?.id) {
+      cleanupOrderSession(client, interaction.user.id);
+    }
     
     try {
       // Si l'interaction est encore valide, répondre

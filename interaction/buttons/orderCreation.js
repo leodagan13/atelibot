@@ -417,6 +417,10 @@ async function publishModalOrder(interaction, orderId, client) {
     const publishChannel = client.channels.cache.get(publishChannelId);
     if (!publishChannel) {
       logger.error(`Publish channel for level ${level} not found:`, publishChannelId);
+      
+      // Make sure to clean up the session before returning with an error
+      client.activeOrders.delete(interaction.user.id);
+      
       return interaction.editReply({
         content: `Erreur: Canal de publication pour le niveau ${level} introuvable.`,
         embeds: [],
@@ -426,12 +430,27 @@ async function publishModalOrder(interaction, orderId, client) {
     }
 
     // Publish the order
-    const publishedMessage = await publishChannel.send({
-      content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
-      embeds: [embed],
-      components: [row],
-      files: [logoAttachment]
-    });
+    let publishedMessage;
+    try {
+      publishedMessage = await publishChannel.send({
+        content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
+        embeds: [embed],
+        components: [row],
+        files: [logoAttachment]
+      });
+    } catch (publishError) {
+      logger.error('Error publishing message to channel:', publishError);
+      
+      // Clean up session before returning
+      client.activeOrders.delete(interaction.user.id);
+      
+      return interaction.editReply({
+        content: `Erreur lors de la publication dans le canal: ${publishError.message}`,
+        embeds: [],
+        components: [],
+        files: []
+      });
+    }
 
     // Update the order with the message ID
     try {
@@ -442,7 +461,7 @@ async function publishModalOrder(interaction, orderId, client) {
       // Continue anyway since the order is created
     }
 
-    // Clear the active order
+    // Clear the active order BEFORE sending the final reply to avoid race conditions
     client.activeOrders.delete(interaction.user.id);
 
     // Update the interaction
@@ -455,6 +474,12 @@ async function publishModalOrder(interaction, orderId, client) {
 
   } catch (error) {
     logger.error('Error publishing modal order:', error);
+    
+    // Always clean up the session in case of error
+    if (interaction.user?.id) {
+      client.activeOrders.delete(interaction.user.id);
+    }
+    
     return interaction.editReply({
       content: 'Une erreur est survenue lors de la publication de l\'offre.',
       embeds: [],

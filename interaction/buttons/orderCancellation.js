@@ -8,7 +8,11 @@ const logger = require('../../utils/logger');
  */
 async function cancelModalOrder(interaction, client) {
   try {
-    // Clear the active order
+    // Check if user has an active session
+    const hasSession = client.activeOrders.has(interaction.user.id);
+    logger.debug(`Cancelling order for user ${interaction.user.id}. Has session: ${hasSession}`);
+    
+    // Clear the active order - do this BEFORE updating the UI to avoid race conditions
     client.activeOrders.delete(interaction.user.id);
     
     // Update the message without embeds or files (logo)
@@ -23,6 +27,12 @@ async function cancelModalOrder(interaction, client) {
     
   } catch (error) {
     logger.error('Error cancelling modal order:', error);
+    
+    // Make sure the session is still cleared even if the UI update fails
+    if (client && interaction.user?.id) {
+      client.activeOrders.delete(interaction.user.id);
+    }
+    
     try {
       if (!interaction.replied) {
         await interaction.update({

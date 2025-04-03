@@ -142,9 +142,10 @@ function getLogoAttachment() {
 /**
  * Create a modern order card embed with sidebar style
  * @param {Object} order - Order data
+ * @param {boolean} isPreview - Whether this is a preview of the order
  * @returns {Object} - Contains embed and action row
  */
-function createSidebarOrderEmbed(order) {
+function createSidebarOrderEmbed(order, isPreview = false) {
   logger.debug(`Creating sidebar embed with data: ${JSON.stringify(order)}`);
 
   const embed = new EmbedBuilder()
@@ -234,8 +235,8 @@ function createSidebarOrderEmbed(order) {
   const row = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId(`confirm_modal_order_${order.orderid}`)
-        .setLabel('Accept this Project')
+        .setCustomId(isPreview ? `confirm_modal_order_${order.orderid}` : `accept_order_${order.orderid}`)
+        .setLabel(isPreview ? 'Confirm & Publish' : 'Accept this Project')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('✅')
     );
