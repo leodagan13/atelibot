@@ -1,12 +1,10 @@
-// commands/order/add.js - With role selector component
+// commands/order/add.js - With sequential modals approach
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { 
   ActionRowBuilder, 
   ModalBuilder, 
   TextInputBuilder, 
-  TextInputStyle,
-  RoleSelectMenuBuilder,
-  StringSelectMenuBuilder
+  TextInputStyle
 } = require('discord.js');
 const { CREATE_ORDERS_CHANNEL_ID } = require('../../config/config');
 const logger = require('../../utils/logger');
@@ -22,7 +20,7 @@ module.exports = {
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction slash command
+      // Determine if this is a slash command
       const isSlash = interaction.isChatInputCommand?.();
       const userId = isSlash ? interaction.user.id : interaction.author.id;
       
@@ -33,19 +31,19 @@ module.exports = {
       }
       
       if (isSlash) {
-        // Initialiser la session de création avec un objet vide
+        // Initialize the creation session with an empty object
         client.activeOrders.set(userId, {
-          step: 'initial',
+          step: 'initial_modal',
           data: {},
           channelId: interaction.channelId
         });
         
-        // Créer le modal
+        // Create the first modal - Basic information
         const modal = new ModalBuilder()
           .setCustomId(`create_order_details_${userId}`)
-          .setTitle('Nouvelle offre de travail');
+          .setTitle('Nouvelle offre - Informations principales');
 
-        // Ajout des champs du formulaire
+        // Add form fields for first modal
         const clientNameInput = new TextInputBuilder()
           .setCustomId('clientName')
           .setLabel('Nom du client (confidentiel)')
@@ -67,55 +65,19 @@ module.exports = {
           .setRequired(true)
           .setStyle(TextInputStyle.Paragraph)
           .setMaxLength(1000);
-          
-        // Ajout du champ pour les tags
-        const tagsInput = new TextInputBuilder()
-          .setCustomId('tags')
-          .setLabel('Tags (séparés par des virgules)')
-          .setPlaceholder('javascript, discord.js, bot, etc...')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short);
 
-        // Year input
-        const yearInput = new TextInputBuilder()
-          .setCustomId('year')
-          .setLabel('Year (YYYY)')
-          .setPlaceholder('2025')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short);
-
-        // Month input
-        const monthInput = new TextInputBuilder()
-          .setCustomId('month')
-          .setLabel('Month (MM)')
-          .setPlaceholder('04')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short);
-
-        // Day input
-        const dayInput = new TextInputBuilder()
-          .setCustomId('day')
-          .setLabel('Day (DD)')
-          .setPlaceholder('15')
-          .setRequired(false)
-          .setStyle(TextInputStyle.Short);
-
-        // Create rows for each input
+        // Create rows for inputs
         const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
         const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
         const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
-        const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
-        const yearRow = new ActionRowBuilder().addComponents(yearInput);
-        const monthRow = new ActionRowBuilder().addComponents(monthInput);
-        const dayRow = new ActionRowBuilder().addComponents(dayInput);
 
-        // Add all rows to the modal
-        modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, yearRow, monthRow, dayRow);
+        // Add rows to modal (maximum 5 rows)
+        modal.addComponents(clientNameRow, compensationRow, descriptionRow);
 
-        // Afficher le modal
+        // Show the modal
         await interaction.showModal(modal);
       } else {
-        // Pour les commandes en préfixe, rediriger vers la slash command
+        // For prefix commands, redirect to slash command
         await interaction.reply('Veuillez utiliser la slash command `/add` pour créer une nouvelle offre.');
       }
       

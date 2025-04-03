@@ -138,15 +138,21 @@ async function handleSelectMenuInteraction(interaction, client) {
     // Handle level selection
     else if (menuId.startsWith('select_level_')) {
       await handleLevelSelection(interaction, client);
-    } 
-    
-    // Handle date year/month selection
-    else if (menuId.startsWith('date_year_') || menuId.startsWith('date_month_')) {
-      await handleYearOrMonthSelection(interaction, client);
     }
+    
     // Handle date day selection
     else if (menuId.startsWith('date_day_')) {
-      await handleDaySelection(interaction, client);
+      await handleDateDaySelection(interaction, client);
+    }
+    
+    // Handle date month selection
+    else if (menuId.startsWith('date_month_')) {
+      await handleDateMonthSelection(interaction, client);
+    }
+    
+    // Handle date year selection
+    else if (menuId.startsWith('date_year_')) {
+      await handleDateYearSelection(interaction, client);
     }
     
     else {
@@ -182,7 +188,166 @@ async function handleSelectMenuInteraction(interaction, client) {
   }
 }
 
+/**
+ * Handles day selection for date
+ * @param {Object} interaction - Discord interaction
+ * @param {Object} client - Discord client
+ */
+async function handleDateDaySelection(interaction, client) {
+  try {
+    await interaction.deferUpdate();
+    
+    const userId = interaction.user.id;
+    const selectedDay = parseInt(interaction.values[0]);
+    
+    // Get the order session
+    const orderSession = client.activeOrders.get(userId);
+    if (!orderSession) {
+      return;
+    }
+    
+    // Store the selected day
+    orderSession.data.dateDay = selectedDay;
+    client.activeOrders.set(userId, orderSession);
+    
+    // Update the message with the date selection information
+    await updateDateSelectionMessage(interaction, client);
+  } catch (error) {
+    logger.error('Error handling day selection:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handles month selection for date
+ * @param {Object} interaction - Discord interaction
+ * @param {Object} client - Discord client
+ */
+async function handleDateMonthSelection(interaction, client) {
+  try {
+    await interaction.deferUpdate();
+    
+    const userId = interaction.user.id;
+    const selectedMonth = parseInt(interaction.values[0]);
+    
+    // Get the order session
+    const orderSession = client.activeOrders.get(userId);
+    if (!orderSession) {
+      return;
+    }
+    
+    // Store the selected month
+    orderSession.data.dateMonth = selectedMonth;
+    client.activeOrders.set(userId, orderSession);
+    
+    // Update the message with the date selection information
+    await updateDateSelectionMessage(interaction, client);
+  } catch (error) {
+    logger.error('Error handling month selection:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handles year selection for date
+ * @param {Object} interaction - Discord interaction
+ * @param {Object} client - Discord client
+ */
+async function handleDateYearSelection(interaction, client) {
+  try {
+    await interaction.deferUpdate();
+    
+    const userId = interaction.user.id;
+    const selectedYear = parseInt(interaction.values[0]);
+    
+    // Get the order session
+    const orderSession = client.activeOrders.get(userId);
+    if (!orderSession) {
+      return;
+    }
+    
+    // Store the selected year
+    orderSession.data.dateYear = selectedYear;
+    client.activeOrders.set(userId, orderSession);
+    
+    // Update the message with the date selection information
+    await updateDateSelectionMessage(interaction, client);
+  } catch (error) {
+    logger.error('Error handling year selection:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the message with date selection status
+ * @param {Object} interaction - Discord interaction
+ * @param {Object} client - Discord client
+ */
+async function updateDateSelectionMessage(interaction, client) {
+  try {
+    const userId = interaction.user.id;
+    const orderSession = client.activeOrders.get(userId);
+    
+    if (!orderSession) {
+      return;
+    }
+    
+    const { dateDay, dateMonth, dateYear } = orderSession.data;
+    
+    // Get month name if month is selected
+    let monthName = 'Not selected';
+    if (dateMonth) {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+      monthName = months[dateMonth - 1];
+    }
+    
+    // Create status message
+    const message = `Please enter the deadline details for your project:
+**Day:** ${dateDay || 'Not selected'}
+**Month:** ${monthName}
+**Year:** ${dateYear || 'Not selected'}`;
+    
+    // Check if we have a complete date
+    const isComplete = dateDay && dateMonth && dateYear;
+    if (isComplete) {
+      // Highlight the Continue button
+      const components = interaction.message.components;
+      
+      // Find the continue button and make it primary
+      for (let i = 0; i < components.length; i++) {
+        const row = components[i];
+        for (let j = 0; j < row.components.length; j++) {
+          const component = row.components[j];
+          if (component.customId === `continue_to_roles_${userId}`) {
+            component.style = ButtonStyle.Success;
+          }
+        }
+      }
+      
+      // Update the message
+      await interaction.editReply({
+        content: `${message}\n✅ Date selection complete! You can continue to the next step.`,
+        components: components
+      });
+    } else {
+      // Just update the message content
+      await interaction.editReply({
+        content: message,
+        components: interaction.message.components
+      });
+    }
+  } catch (error) {
+    logger.error('Error updating date selection message:', error);
+    throw error;
+  }
+}
+
 module.exports = {
-    handleSelectMenuInteraction,
-    handleRoleSelection
+  handleSelectMenuInteraction,
+  handleRoleSelection,
+  handleDateDaySelection,
+  handleDateMonthSelection,
+  handleDateYearSelection,
+  updateDateSelectionMessage
 };
