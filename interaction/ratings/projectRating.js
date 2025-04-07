@@ -102,10 +102,9 @@ async function handleRatingVote(interaction) {
     const rating = parseInt(parts[3]);
     
     // Vérifier que l'utilisateur est un administrateur
+    const { adminRoleIds } = require('../../config/config');
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const isAdmin = member.roles.cache.some(role => 
-      ['Administrator', 'Admin', 'Administrateur', 'Modérateur', 'Moderator'].includes(role.name)
-    );
+    const isAdmin = member.roles.cache.some(role => adminRoleIds.includes(role.id));
     
     if (!isAdmin) {
       return interaction.followUp({

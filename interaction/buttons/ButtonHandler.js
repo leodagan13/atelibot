@@ -1,4 +1,13 @@
-// interactions/buttons/buttonHandler.js - Handles button interactions
+// interactions/buttons/ButtonHandler.js - Handles button interactions
+const { 
+  ModalBuilder, 
+  TextInputBuilder, 
+  TextInputStyle,
+  ButtonBuilder, 
+  ButtonStyle, 
+  ActionRowBuilder, 
+  StringSelectMenuBuilder 
+} = require('discord.js');
 const { handleOrderAcceptance } = require('../../interaction/buttons/acceptOrder');
 const { handleOrderCompletion } = require('../../interaction/buttons/completeOrder');
 const { handleVerificationRequest } = require('../../interaction/buttons/requestVerification');
@@ -11,7 +20,6 @@ const { cancelModalOrder } = require('./orderCancellation');
 const { cleanupOrderSession } = require('../../utils/orderSessionManager');
 const { handleDateContinue, dateSelections } = require('../../utils/dateSelection');
 const logger = require('../../utils/logger');
-const { ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 /**
  * Handles button interactions
@@ -93,6 +101,59 @@ async function handleButtonInteraction(interaction, client) {
     // Handle continue to roles
     else if (buttonId.startsWith('continue_to_roles_')) {
       await handleContinueToRoles(interaction, client);
+    }
+    
+    // Handle showing date selection modal 
+    else if (buttonId.startsWith('show_date_modal_')) {
+      const userId = buttonId.replace('show_date_modal_', '');
+      
+      // Create date selection modal
+      const modal = new ModalBuilder()
+        .setCustomId(`create_order_date_${userId}`)
+        .setTitle('Project Deadline');
+        
+      // Year input
+      const yearInput = new TextInputBuilder()
+        .setCustomId('year')
+        .setLabel('Year (e.g., 2025)')
+        .setPlaceholder('Enter the year')
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+        
+      // Month input
+      const monthInput = new TextInputBuilder()
+        .setCustomId('month')
+        .setLabel('Month (1-12)')
+        .setPlaceholder('Enter the month number')
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+        
+      // Day input
+      const dayInput = new TextInputBuilder()
+        .setCustomId('day')
+        .setLabel('Day (1-31)')
+        .setPlaceholder('Enter the day number')
+        .setRequired(true)
+        .setStyle(TextInputStyle.Short);
+        
+      // Optional tags input
+      const tagsInput = new TextInputBuilder()
+        .setCustomId('tags')
+        .setLabel('Tags (Optional, comma-separated)')
+        .setPlaceholder('javascript, react, api')
+        .setRequired(false)
+        .setStyle(TextInputStyle.Short);
+        
+      // Add components to modal
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(yearInput),
+        new ActionRowBuilder().addComponents(monthInput),
+        new ActionRowBuilder().addComponents(dayInput),
+        new ActionRowBuilder().addComponents(tagsInput)
+      );
+      
+      // Show the modal
+      await interaction.showModal(modal);
     }
     
     // Handle date day button selection
