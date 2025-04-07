@@ -70,15 +70,15 @@ const FIELD_ICONS = {
 };
 
 /**
- * Icônes et noms pour les niveaux de difficulté
+ * Icons and names for difficulty levels
  */
 const LEVEL_ICONS = {
-  1: '🟩', // Facile
-  2: '🟨', // Débutant
-  3: '🟧', // Intermédiaire
-  4: '🟥', // Avancé
+  1: '🟩', // Easy
+  2: '🟨', // Beginner
+  3: '🟧', // Intermediate
+  4: '🟥', // Advanced
   5: '🔴', // Expert
-  6: '⚫', // Super Expert (niveau 6)
+  6: '⚫', // Super Expert (level 6)
   
   // Get icon by level
   getIcon(level) {
@@ -88,10 +88,10 @@ const LEVEL_ICONS = {
   // Get difficulty name by level
   getName(level) {
     const names = {
-      1: 'Facile',
-      2: 'Débutant',
-      3: 'Intermédiaire',
-      4: 'Avancé',
+      1: 'Easy',
+      2: 'Beginner',
+      3: 'Intermediate',
+      4: 'Advanced',
       5: 'Expert',
       6: 'Super Expert'
     };
@@ -159,15 +159,15 @@ function createSidebarOrderEmbed(order, isPreview = false) {
       { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge(order.status || 'OPEN'), inline: true }
     );
     
-  // Ajouter le niveau avec l'icône correspondante
+  // Add level with corresponding icon
   const level = parseInt(order.level) || 1;
   embed.addFields({
-    name: `${LEVEL_ICONS.getIcon(level)} Difficulté`,
-    value: `Niveau ${level} - ${LEVEL_ICONS.getName(level)}`,
+    name: `${LEVEL_ICONS.getIcon(level)} Difficulty`,
+    value: `Level ${level} - ${LEVEL_ICONS.getName(level)}`,
     inline: true
   });
   
-  // Ajouter l'ID du projet
+  // Add project ID
   embed.addFields({ 
     name: `${FIELD_ICONS.orderid} Project ID`, 
     value: `\`${order.orderid}\``, 
@@ -178,9 +178,9 @@ function createSidebarOrderEmbed(order, isPreview = false) {
   logger.debug(`Checking for deadline: ${order.deadline}`);
   if (order.deadline) {
     const deadlineDate = new Date(order.deadline);
-    // Vérifier que c'est une date valide
+    // Check if it's a valid date
     if (!isNaN(deadlineDate.getTime())) {
-      // Utiliser le timestamp Discord pour un affichage localisé de la date
+      // Use Discord timestamp for localized date display
       const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
       embed.addFields({ 
         name: `${FIELD_ICONS.date} Deadline`, 
@@ -188,13 +188,13 @@ function createSidebarOrderEmbed(order, isPreview = false) {
         inline: false
       });
       
-      // Ajouter un message d'urgence si la deadline est proche (moins de 72h)
+      // Add urgency message if deadline is approaching (less than 72h)
       const now = new Date();
       const diffHours = (deadlineDate - now) / (1000 * 60 * 60);
       if (diffHours > 0 && diffHours < 72) {
         embed.addFields({ 
           name: `⚠️ Urgent`, 
-          value: `La deadline est dans moins de 3 jours!`,
+          value: `The deadline is in less than 3 days!`,
           inline: false
         });
       }
@@ -206,7 +206,7 @@ function createSidebarOrderEmbed(order, isPreview = false) {
     let rolesList = '';
     
     order.requiredRoles.forEach(role => {
-      // Si le rôle a un ID, l'afficher comme une mention, sinon en texte
+      // If the role has an ID, display it as a mention, otherwise as text
       if (role.id) {
         rolesList += `<@&${role.id}> `;
       } else {
@@ -217,7 +217,7 @@ function createSidebarOrderEmbed(order, isPreview = false) {
     embed.addFields({ name: `${FIELD_ICONS.skills} Skills/Roles Required`, value: rolesList || 'No specific roles required' });
   }
   
-  // Fin du message avec footer
+  // End of message with footer
   embed.setFooter({ 
     text: `Posted by ${order.adminName || 'Admin'}`,
     iconURL: 'attachment://logo.png'
@@ -256,22 +256,22 @@ function createPrivateChannelEmbed(order, developerID) {
       { name: `${FIELD_ICONS.status} Status`, value: STATUS_BADGES.getBadge('ASSIGNED'), inline: true }
     );
     
-  // Ajouter le niveau avec l'icône correspondante
+  // Add level with corresponding icon
   const level = parseInt(order.level) || 1;
   embed.addFields({
-    name: `${LEVEL_ICONS.getIcon(level)} Difficulté`,
-    value: `Niveau ${level} - ${LEVEL_ICONS.getName(level)}`,
+    name: `${LEVEL_ICONS.getIcon(level)} Difficulty`,
+    value: `Level ${level} - ${LEVEL_ICONS.getName(level)}`,
     inline: true
   });
   
-  // Ajouter l'ID du projet
+  // Add project ID
   embed.addFields({ 
     name: `${FIELD_ICONS.orderid} Project ID`, 
     value: `\`${order.orderid}\``, 
     inline: true 
   });
   
-  // Ajouter également les champs pour administrateur, développeur etc.
+  // Also add fields for administrator, developer etc.
   embed.addFields(
     { name: '\u200B', value: '――――――――――――――――――――' },
     { name: `${FIELD_ICONS.admin} Administrator`, value: `<@${order.adminid}>`, inline: true },

@@ -1,4 +1,4 @@
-// interaction/buttons/acceptOrder.js - Logique pour l'acceptation d'offres
+// interaction/buttons/acceptOrder.js - Logic for order acceptance
 
 const { 
   EmbedBuilder, 
@@ -15,9 +15,9 @@ const logger = require('../../utils/logger');
 const { appearance } = require('../../config/config');
 
 /**
- * Gère l'acceptation d'une offre par un codeur
- * @param {Object} interaction - Interaction Discord (bouton)
- * @param {String} orderId - Identifiant de l'offre
+ * Handles order acceptance by a coder
+ * @param {Object} interaction - Discord interaction (button)
+ * @param {String} orderId - Order identifier
  */
 async function handleOrderAcceptance(interaction, orderId) {
   try {
@@ -30,7 +30,7 @@ async function handleOrderAcceptance(interaction, orderId) {
     const coderData = await coderDB.findByUserId(coderId);
     if (coderData && coderData.activeorderid) {
       return interaction.reply({
-        content: 'Vous travaillez déjà sur un autre projet. Terminez-le avant d\'en accepter un nouveau.',
+        content: 'You are already working on another project. Finish it before accepting a new one.',
         ephemeral: true
       });
     }
@@ -42,7 +42,7 @@ async function handleOrderAcceptance(interaction, orderId) {
     if (!order) {
       logger.error(`Order with ID ${orderId} not found in database`);
       return interaction.reply({
-        content: 'Cette offre n\'existe plus ou a déjà été prise.',
+        content: 'This order no longer exists or has already been taken.',
         ephemeral: true
       });
     }
@@ -53,7 +53,7 @@ async function handleOrderAcceptance(interaction, orderId) {
     // Check if order is still open
     if (order.status !== 'OPEN') {
       return interaction.reply({
-        content: 'Cette offre n\'est plus disponible.',
+        content: 'This order is no longer available.',
         ephemeral: true
       });
     }
@@ -79,7 +79,7 @@ async function handleOrderAcceptance(interaction, orderId) {
     
     // Reply to interaction
     await interaction.reply({
-      content: `Vous avez accepté le travail! Un canal privé a été créé: ${privateChannel}`,
+      content: `You have accepted the job! A private channel has been created: ${privateChannel}`,
       ephemeral: true
     });
     
@@ -89,48 +89,48 @@ async function handleOrderAcceptance(interaction, orderId) {
   } catch (error) {
     logger.error(`Error handling order acceptance for ID ${orderId}:`, error);
     await interaction.reply({
-      content: 'Une erreur est survenue lors de l\'acceptation de l\'offre.',
+      content: 'An error occurred while accepting the order.',
       ephemeral: true
     });
   }
 }
 
 /**
- * Crée un canal privé pour le projet
- * @param {Object} guild - Serveur Discord
- * @param {Object} order - Données de l'offre
- * @param {String} coderId - ID du codeur
- * @returns {Object} - Le canal créé
+ * Creates a private channel for the project
+ * @param {Object} guild - Discord server
+ * @param {Object} order - Order data
+ * @param {String} coderId - Coder ID
+ * @returns {Object} - The created channel
  */
 async function createPrivateChannel(guild, order, coderId) {
-  // ID de la catégorie principale où les canaux de projets actifs doivent être créés
+  // ID of the main category where active project channels should be created
   const PROJECTS_CATEGORY_ID = '1351732830144561192';
   
-  // Vérifier si la catégorie existe
+  // Check if the category exists
   const category = guild.channels.cache.get(PROJECTS_CATEGORY_ID);
   if (!category) {
-    logger.warn(`Catégorie de projets avec ID ${PROJECTS_CATEGORY_ID} non trouvée. Le canal sera créé sans catégorie parente.`);
+    logger.warn(`Project category with ID ${PROJECTS_CATEGORY_ID} not found. The channel will be created without a parent category.`);
   }
   
   return await guild.channels.create({
     name: `projet-${order.orderid}`,
     type: ChannelType.GuildText,
-    parent: category ? category.id : null, // Définir la catégorie parente
+    parent: category ? category.id : null, // Set the parent category
     permissionOverwrites: [
       {
         id: guild.id, // @everyone
         deny: [PermissionsBitField.Flags.ViewChannel]
       },
       {
-        id: coderId, // Codeur
+        id: coderId, // Coder
         allow: [PermissionsBitField.Flags.ViewChannel]
       },
       {
-        id: order.adminid, // Admin qui a posté
+        id: order.adminid, // Admin who posted
         allow: [PermissionsBitField.Flags.ViewChannel]
       },
       {
-        id: guild.client.user.id, // Le bot
+        id: guild.client.user.id, // The bot
         allow: [PermissionsBitField.Flags.ViewChannel]
       }
     ]
@@ -138,10 +138,10 @@ async function createPrivateChannel(guild, order, coderId) {
 }
 
 /**
- * Envoie un message initial dans le canal du projet
- * @param {Object} channel - Canal Discord
- * @param {Object} order - Données de l'offre
- * @param {String} coderId - ID du codeur
+ * Sends an initial message in the project channel
+ * @param {Object} channel - Discord channel
+ * @param {Object} order - Order data
+ * @param {String} coderId - Coder ID
  */
 async function sendInitialMessage(channel, order, coderId) {
   logger.debug(`Creating channel message with order: ${JSON.stringify(order)}`);
@@ -156,27 +156,27 @@ async function sendInitialMessage(channel, order, coderId) {
     files: [logoAttachment]
   });
   
-  await channel.send(`Bienvenue dans le canal du projet! <@${coderId}> et <@${order.adminid}>, vous pouvez communiquer ici à propos du travail.`);
+  await channel.send(`Welcome to the project channel! <@${coderId}> and <@${order.adminid}>, you can communicate here about the work.`);
   
-  // Si une deadline est définie, ajouter un message spécifique
+  // If a deadline is set, add a specific message
   if (order.deadline) {
     const deadlineDate = new Date(order.deadline);
     const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
     
     await channel.send({
-      content: `⚠️ **Rappel:** Ce projet a une deadline fixée au <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>). Veuillez planifier votre travail en conséquence.`
+      content: `⚠️ **Reminder:** This project has a deadline set for <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>). Please plan your work accordingly.`
     });
   }
 }
 
 /**
- * Met à jour le message original pour désactiver le bouton
- * @param {Object} interaction - Interaction Discord
+ * Updates the original message to disable the button
+ * @param {Object} interaction - Discord interaction
  */
 async function updateOriginalMessage(interaction) {
   const originalRow = ActionRowBuilder.from(interaction.message.components[0]);
   const button = ButtonBuilder.from(originalRow.components[0]);
-  button.setDisabled(true).setLabel('Travail accepté');
+  button.setDisabled(true).setLabel('Work accepted');
   originalRow.setComponents(button);
   
   await interaction.message.edit({

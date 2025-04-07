@@ -41,14 +41,14 @@ async function handleOrderConfirmationModal(interaction, client) {
       level = Math.min(Math.max(parseInt(level), 1), 6);
     }
     
-    // Vérification pour le niveau 6 - seul un super administrateur peut créer un projet niveau 6
+    // Check for level 6 - only a super administrator can create a level 6 project
     const SUPER_ADMIN_ID = "1351725292741197976";
     if (level === 6 && !interaction.member.roles.cache.has(SUPER_ADMIN_ID)) {
-      // Si l'utilisateur n'est pas un super admin et tente de créer un projet niveau 6,
-      // on limite à 5 et on l'informe
+      // If the user is not a super admin and tries to create a level 6 project,
+      // we limit it to 5 and inform them
       level = 5;
       await interaction.followUp({
-        content: "⚠️ Seul un super administrateur peut créer un projet de niveau 6. Le niveau a été ajusté à 5.",
+        content: "⚠️ Only a super administrator can create a level 6 project. The level has been adjusted to 5.",
         ephemeral: true
       });
     }
@@ -100,7 +100,7 @@ async function handleOrderConfirmationModal(interaction, client) {
     // Get the appropriate channel name for this level to show in preview
     const levelChannelId = getPublishChannelId(level, client);
     const levelChannel = client.channels.cache.get(levelChannelId);
-    const channelName = levelChannel ? levelChannel.name : 'canal indisponible';
+    const channelName = levelChannel ? levelChannel.name : 'channel unavailable';
     
     // Create embed for preview
     const { embed, row } = createSidebarOrderEmbed(orderData, true);
@@ -122,7 +122,7 @@ async function handleOrderConfirmationModal(interaction, client) {
     
     // Send preview with buttons
     await interaction.editReply({
-      content: `Voici un aperçu de votre offre de niveau ${level}. Elle sera publiée dans le canal #${channelName}. Vérifiez les détails et confirmez la publication.`,
+      content: `Here is a preview of your level ${level} order. It will be published in the #${channelName} channel. Check the details and confirm the publication.`,
       embeds: [embed],
       components: [row],
       files: [logoAttachment]
@@ -133,14 +133,14 @@ async function handleOrderConfirmationModal(interaction, client) {
     try {
       if (interaction.deferred) {
         await interaction.editReply({
-          content: 'Une erreur est survenue lors du traitement du formulaire. Veuillez réessayer.',
+          content: 'An error occurred while processing the form. Please try again.',
           embeds: [],
           components: [],
           files: []
         });
       } else {
         await interaction.reply({
-          content: 'Une erreur est survenue lors du traitement du formulaire. Veuillez réessayer.',
+          content: 'An error occurred while processing the form. Please try again.',
           ephemeral: true
         });
       }

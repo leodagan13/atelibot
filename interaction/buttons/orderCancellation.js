@@ -2,8 +2,8 @@
 const logger = require('../../utils/logger');
 
 /**
- * Annule la création d'offre via modal
- * @param {Object} interaction - Interaction Discord (button)
+ * Cancels order creation via modal
+ * @param {Object} interaction - Discord interaction (button)
  * @param {Object} client - Discord client
  */
 async function cancelModalOrder(interaction, client) {
@@ -17,7 +17,7 @@ async function cancelModalOrder(interaction, client) {
     
     // Update the message without embeds or files (logo)
     await interaction.update({
-      content: '❌ Création d\'offre annulée.',
+      content: '❌ Order creation cancelled.',
       embeds: [],
       components: [],
       files: [] // This explicitly removes any files (including the logo)
@@ -36,7 +36,7 @@ async function cancelModalOrder(interaction, client) {
     try {
       if (!interaction.replied) {
         await interaction.update({
-          content: 'Une erreur est survenue lors de l\'annulation de l\'offre.',
+          content: 'An error occurred while cancelling the order.',
           embeds: [],
           components: [],
           files: [] // Also remove files in error case

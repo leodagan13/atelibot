@@ -5,40 +5,40 @@ const { createNotification, getLogoAttachment } = require('../../utils/modernEmb
 const { appearance } = require('../../config/config');
 
 /**
- * Gère la demande de vérification d'un projet par un développeur
- * @param {Object} interaction - Interaction Discord (bouton)
- * @param {String} orderId - Identifiant de l'offre
+ * Handles verification request for a project by a developer
+ * @param {Object} interaction - Discord interaction (button)
+ * @param {String} orderId - Order identifier
  */
 async function handleVerificationRequest(interaction, orderId) {
   try {
     const userId = interaction.user.id;
     
-    // Récupérer les informations de l'offre depuis Supabase
+    // Retrieve order information from Supabase
     const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
-        content: 'Cette offre n\'existe plus.',
+        content: 'This order no longer exists.',
         ephemeral: true
       });
     }
     
-    // Vérifier si l'utilisateur est le codeur assigné au projet
+    // Check if user is the coder assigned to the project
     if (order.assignedto !== userId) {
       return interaction.reply({
-        content: 'Vous n\'êtes pas autorisé à demander la vérification de ce projet.',
+        content: 'You are not authorized to request verification for this project.',
         ephemeral: true
       });
     }
     
-    // Vérifier que l'offre est au statut ASSIGNED
+    // Check that the order is in ASSIGNED status
     if (order.status !== 'ASSIGNED') {
       return interaction.reply({
-        content: `Ce projet ne peut pas être vérifié car il est au statut ${order.status}.`,
+        content: `This project cannot be verified because it has status ${order.status}.`,
         ephemeral: true
       });
     }
     
-    // Vérifier si une demande de vérification a été faite dans les dernières 24 heures
+    // Check if a verification request has been made in the last 24 hours
     if (order.lastverificationrequest) {
       const lastRequest = new Date(order.lastverificationrequest);
       const now = new Date();
@@ -46,24 +46,24 @@ async function handleVerificationRequest(interaction, orderId) {
       
       if (hoursSinceLastRequest < 24) {
         const timeRemaining = Math.ceil(24 - hoursSinceLastRequest);
-        const timeFormat = timeRemaining === 1 ? 'heure' : 'heures';
+        const timeFormat = timeRemaining === 1 ? 'hour' : 'hours';
         
         return interaction.reply({
-          content: `Vous avez déjà demandé une vérification récemment. Veuillez attendre encore ${timeRemaining} ${timeFormat} avant de faire une nouvelle demande.`,
+          content: `You have already requested verification recently. Please wait ${timeRemaining} ${timeFormat} before making a new request.`,
           ephemeral: true
         });
       }
     }
     
-    // Mettre à jour le timestamp de dernière demande de vérification
+    // Update the timestamp of the last verification request
     await orderDB.updateLastVerificationRequest(orderId);
     
-    // Mentionner le rôle administrateur pour demander une vérification
+    // Mention the administrator role to request verification
     await interaction.channel.send({
-      content: `<@&1350494624342347878> Le développeur <@${userId}> a terminé son travail sur le projet #${orderId} et demande une vérification pour clôturer le projet.`
+      content: `<@&1350494624342347878> The developer <@${userId}> has completed their work on project #${orderId} and requests verification to close the project.`
     });
     
-    // Répondre à l'interaction
+    // Reply to the interaction
     const embed = createNotification(
         'Verification Requested',
         `A verification has been requested for project #${order.orderid}.`,
@@ -83,7 +83,7 @@ async function handleVerificationRequest(interaction, orderId) {
   } catch (error) {
     logger.error('Error handling verification request:', error);
     await interaction.reply({
-      content: 'Une erreur est survenue lors de la demande de vérification.',
+      content: 'An error occurred while requesting verification.',
       ephemeral: true
     });
   }

@@ -8,7 +8,7 @@ const { createSidebarOrderEmbed, getLogoAttachment } = require('../../utils/mode
 const { appearance } = require('../../config/config');
 const path = require('path');
 
-// Stockage temporaire des commandes en cours de confirmation
+// Temporary storage for orders pending confirmation
 const pendingConfirmations = new Map();
 
 /**
@@ -53,15 +53,15 @@ async function processOrderInput(message, orderSession, client) {
       case 0: // Client name
         orderSession.data.clientName = message.content;
         orderSession.step = 1;
-        await message.reply(`Client enregistré: **${message.content}**`);
-        await message.channel.send('**Étape 2/3**: Quelle est la rémunération pour ce travail?');
+        await message.reply(`Client registered: **${message.content}**`);
+        await message.channel.send('**Step 2/3**: What is the compensation for this work?');
         break;
         
       case 1: // Compensation
         orderSession.data.compensation = message.content;
         orderSession.step = 2;
-        await message.reply(`Rémunération enregistrée: **${message.content}**`);
-        await message.channel.send('**Étape 3/3**: Veuillez fournir une description détaillée du travail.');
+        await message.reply(`Compensation registered: **${message.content}**`);
+        await message.channel.send('**Step 3/3**: Please provide a detailed description of the work.');
         break;
         
       case 2: // Description
@@ -75,7 +75,7 @@ async function processOrderInput(message, orderSession, client) {
     
   } catch (error) {
     logger.error('Error processing order input:', error);
-    await message.reply('Une erreur est survenue lors du traitement de votre réponse.');
+    await message.reply('An error occurred while processing your response.');
   }
 }
 
@@ -87,7 +87,7 @@ async function processOrderInput(message, orderSession, client) {
  */
 async function showOrderSummary(message, orderSession, client) {
   try {
-    // Générer un ID unique pour cette confirmation
+    // Generate a unique ID for this confirmation
     const confirmationId = Math.random().toString(36).substring(2, 10);
     
     // Create the order data structure for the embed
@@ -107,19 +107,19 @@ async function showOrderSummary(message, orderSession, client) {
       .addComponents(
         new ButtonBuilder()
           .setCustomId(`confirm_order_${confirmationId}`)
-          .setLabel('Publier l\'offre')
+          .setLabel('Publish Offer')
           .setStyle(ButtonStyle.Success)
           .setEmoji('✅'),
         new ButtonBuilder()
           .setCustomId(`cancel_order_${confirmationId}`)
-          .setLabel('Annuler')
+          .setLabel('Cancel')
           .setStyle(ButtonStyle.Danger)
           .setEmoji('❌')
       );
     
     const logoAttachment = getLogoAttachment();
     
-    // Stocker les données de l'ordre pour la confirmation
+    // Store order data for confirmation
     pendingConfirmations.set(confirmationId, {
       userId: message.author.id,
       orderSession: orderSession,
@@ -146,20 +146,20 @@ async function showOrderSummary(message, orderSession, client) {
     
     collector.on('collect', async interaction => {
       try {
-        // Répondre immédiatement pour éviter le timeout
+        // Respond immediately to avoid timeout
         await interaction.deferUpdate();
         
-        // Récupérer les données de confirmation
+        // Get confirmation data
         const confirmationData = pendingConfirmations.get(confirmationId);
         
         if (!confirmationData) {
-          await interaction.channel.send('Erreur: données de confirmation non trouvées.');
+          await interaction.channel.send('Error: confirmation data not found.');
           return;
         }
         
-        // Mettre à jour le message pour indiquer le traitement
+        // Update message to indicate processing
         await summaryMessage.edit({
-          content: 'Traitement en cours...',
+          content: 'Processing...',
           embeds: [embed],
           components: []
         });
@@ -170,13 +170,13 @@ async function showOrderSummary(message, orderSession, client) {
           await processOrderCancellation(interaction, confirmationData, client);
         }
         
-        // Supprimer les données de confirmation
+        // Remove confirmation data
         pendingConfirmations.delete(confirmationId);
         
       } catch (error) {
         logger.error('Error handling button interaction:', error);
         try {
-          await interaction.channel.send('Une erreur est survenue lors du traitement de votre action.');
+          await interaction.channel.send('An error occurred while processing your action.');
         } catch (sendError) {
           logger.error('Failed to send error message:', sendError);
         }
@@ -196,7 +196,7 @@ async function showOrderSummary(message, orderSession, client) {
         if (summaryMessage.editable) {
           // Update the message to show it's expired
           await summaryMessage.edit({ 
-            content: 'La session de création d\'offre a expiré.',
+            content: 'The order creation session has expired.',
             embeds: [embed],
             components: []
           });
@@ -206,7 +206,7 @@ async function showOrderSummary(message, orderSession, client) {
     
   } catch (error) {
     logger.error('Error showing order summary:', error);
-    await message.reply('Une erreur est survenue lors de l\'affichage du résumé de l\'offre.');
+    await message.reply('An error occurred while displaying the order summary.');
   }
 }
 
@@ -220,7 +220,7 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
   try {
     const { userId, orderSession, channel } = confirmationData;
     
-    // Générer un ID unique pour la commande
+    // Generate a unique ID for the order
     const uniqueOrderId = `${Date.now().toString().slice(-8)}-${Math.random().toString(36).substring(2, 8)}`;
     
     // Create the order data
@@ -230,9 +230,9 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       data: orderSession.data
     };
     
-    // Log pour déboguer
-    logger.debug("Données de l'offre:", orderSession);
-    logger.debug("Données à insérer:", {
+    // Log for debugging
+    logger.debug("Order data:", orderSession);
+    logger.debug("Data to insert:", {
       orderId: orderData.orderId,
       adminId: orderData.adminId,
       clientName: orderData.data.clientName,
@@ -241,12 +241,12 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       level: orderData.data.level || 1
     });
     
-    // Tente de créer l'ordre
+    // Try to create the order
     try {
       await orderDB.create(orderData);
     } catch (dbError) {
       logger.error('Error creating order:', dbError);
-      await channel.send(`Une erreur est survenue lors de la création de l'offre dans la base de données: ${dbError.message}`);
+      await channel.send(`An error occurred while creating the order in the database: ${dbError.message}`);
       
       // Clear the active order
       client.activeOrders.delete(userId);
@@ -274,14 +274,14 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     
     if (!publishChannel) {
       logger.error(`Publish channel for level ${level} not found:`, publishChannelId);
-      await channel.send(`Erreur: Canal de publication pour le niveau ${level} introuvable.`);
+      await channel.send(`Error: Publish channel for level ${level} not found.`);
       return;
     }
     
     // Publish the order
     try {
       const publishedMessage = await publishChannel.send({
-        content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
+        content: `**📢 New work opportunity available! (Level ${level})**`,
         embeds: [embed],
         components: [row],
         files: [logoAttachment]
@@ -291,7 +291,7 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       await orderDB.updateMessageId(uniqueOrderId, publishedMessage.id);
     } catch (publishError) {
       logger.error('Error publishing order to channel:', publishError);
-      await channel.send('Une erreur est survenue lors de la publication de l\'offre dans le canal.');
+      await channel.send('An error occurred while publishing the order to the channel.');
       return;
     }
     
@@ -299,12 +299,12 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
     client.activeOrders.delete(userId);
     
     // Notify success with specific channel mention
-    await channel.send(`✅ Offre #${uniqueOrderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`);
+    await channel.send(`✅ Order #${uniqueOrderId} (Level ${level}) successfully published in <#${publishChannelId}>.`);
     
   } catch (error) {
     logger.error('Error processing order confirmation:', error);
     const { channel } = confirmationData;
-    await channel.send(`Une erreur est survenue lors du traitement de la confirmation: ${error.message}`);
+    await channel.send(`An error occurred while processing the confirmation: ${error.message}`);
   }
 }
 
@@ -322,12 +322,12 @@ async function processOrderCancellation(interaction, confirmationData, client) {
     client.activeOrders.delete(userId);
     
     // Notify cancellation
-    await channel.send('❌ Création d\'offre annulée.');
+    await channel.send('❌ Order creation cancelled.');
     
   } catch (error) {
     logger.error('Error processing order cancellation:', error);
     const { channel } = confirmationData;
-    await channel.send(`Une erreur est survenue lors de l'annulation: ${error.message}`);
+    await channel.send(`An error occurred while cancelling: ${error.message}`);
   }
 }
 
@@ -345,7 +345,7 @@ async function publishModalOrder(interaction, orderId, client) {
     const orderSession = client.activeOrders.get(interaction.user.id);
     if (!orderSession) {
       return interaction.editReply({
-        content: 'Session de création d\'offre expirée ou invalide.',
+        content: 'Order creation session expired or invalid.',
         embeds: [],
         components: [],
         files: []
@@ -382,7 +382,7 @@ async function publishModalOrder(interaction, orderId, client) {
     } catch (dbError) {
       logger.error('Database error creating order:', dbError);
       return interaction.editReply({
-        content: `Erreur de base de données lors de la création de l'offre: ${dbError.message}`,
+        content: `Database error while creating the order: ${dbError.message}`,
         embeds: [],
         components: [],
         files: []
@@ -418,7 +418,7 @@ async function publishModalOrder(interaction, orderId, client) {
       client.activeOrders.delete(interaction.user.id);
       
       return interaction.editReply({
-        content: `Erreur: Canal de publication pour le niveau ${level} introuvable.`,
+        content: `Error: Publish channel for level ${level} not found.`,
         embeds: [],
         components: [],
         files: []
@@ -429,7 +429,7 @@ async function publishModalOrder(interaction, orderId, client) {
     let publishedMessage;
     try {
       publishedMessage = await publishChannel.send({
-        content: `**📢 Nouvelle opportunité de travail disponible! (Niveau ${level})**`,
+        content: `**📢 New work opportunity available! (Level ${level})**`,
         embeds: [embed],
         components: [row],
         files: [logoAttachment]
@@ -441,7 +441,7 @@ async function publishModalOrder(interaction, orderId, client) {
       client.activeOrders.delete(interaction.user.id);
       
       return interaction.editReply({
-        content: `Erreur lors de la publication dans le canal: ${publishError.message}`,
+        content: `Error publishing to channel: ${publishError.message}`,
         embeds: [],
         components: [],
         files: []
@@ -462,7 +462,7 @@ async function publishModalOrder(interaction, orderId, client) {
 
     // Update the interaction
     return interaction.editReply({
-      content: `✅ Offre #${orderId} (Niveau ${level}) publiée avec succès dans <#${publishChannelId}>.`,
+      content: `✅ Order #${orderId} (Level ${level}) successfully published in <#${publishChannelId}>.`,
       embeds: [],
       components: [],
       files: []
@@ -477,7 +477,7 @@ async function publishModalOrder(interaction, orderId, client) {
     }
     
     return interaction.editReply({
-      content: 'Une erreur est survenue lors de la publication de l\'offre.',
+      content: 'An error occurred while publishing the order.',
       embeds: [],
       components: [],
       files: []

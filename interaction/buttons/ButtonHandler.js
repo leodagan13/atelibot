@@ -33,18 +33,18 @@ async function handleButtonInteraction(interaction, client) {
   try {
     logger.debug(`Processing button interaction: ${buttonId}`);
     
-    // Gestion des boutons de notation (commençant par 'rate_')
+    // Handle rating buttons (starting with 'rate_')
     if (buttonId.startsWith('rate_')) {
       await handleRatingVote(interaction);
     }
     
-    // Ordre d'acceptation
+    // Order acceptance
     else if (buttonId.startsWith('accept_order_')) {
       const orderId = buttonId.replace('accept_order_', '');
       await handleOrderAcceptance(interaction, orderId);
     }
     
-    // Ordre de complétion
+    // Order completion
     else if (buttonId.startsWith('complete_order_')) {
       const orderId = buttonId.replace('complete_order_', '');
       await handleOrderCompletion(interaction, orderId);
@@ -62,13 +62,13 @@ async function handleButtonInteraction(interaction, client) {
       await handleAdminCompletion(interaction, orderId);
     }
     
-    // Confirmation d'ordre - Ajout pour le nouveau système
+    // Order confirmation - Addition for the new system
     else if (buttonId.startsWith('confirm_modal_order_')) {
       const orderId = buttonId.replace('confirm_modal_order_', '');
       await publishModalOrder(interaction, orderId, client);
     }
     
-    // Annulation d'ordre - Ajout pour le nouveau système
+    // Order cancellation - Addition for the new system
     else if (buttonId.startsWith('cancel_modal_order_')) {
       await cancelModalOrder(interaction, client);
     }
@@ -177,7 +177,7 @@ async function handleButtonInteraction(interaction, client) {
       });
     }
     
-    // Boutons non reconnus
+    // Unrecognized buttons
     else {
       logger.warn(`Unrecognized button customId: ${buttonId}`);
     }
@@ -193,15 +193,15 @@ async function handleButtonInteraction(interaction, client) {
     }
     
     try {
-      // Si l'interaction est encore valide, répondre
+      // If the interaction is still valid, reply
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: 'Une erreur est survenue lors du traitement de cette interaction.',
+          content: 'An error occurred while processing this interaction.',
           ephemeral: true
         });
       } else {
-        // Sinon, envoyer dans le canal
-        await interaction.channel.send('Une erreur est survenue lors du traitement de cette interaction.');
+        // Otherwise, send in the channel
+        await interaction.channel.send('An error occurred while processing this interaction.');
       }
     } catch (replyError) {
       logger.error('Error sending error response:', replyError);
