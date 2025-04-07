@@ -3,10 +3,10 @@ const { ChannelType } = require('discord.js');
 const logger = require('./logger');
 
 /**
- * Déplace un canal vers la catégorie du mois en cours et retire l'accès au codeur
- * @param {Object} channel - Canal Discord à déplacer
- * @param {Object} guild - Serveur Discord
- * @param {String} coderId - ID du codeur à qui retirer l'accès
+ * Moves a channel to the current month's category and removes access from the coder
+ * @param {Object} channel - Discord channel to move
+ * @param {Object} guild - Discord server
+ * @param {String} coderId - ID of the coder to remove access from
  */
 async function moveChannelToMonthlyCategory(channel, guild, coderId) {
   try {
@@ -33,26 +33,28 @@ async function moveChannelToMonthlyCategory(channel, guild, coderId) {
       category = await guild.channels.create({
         name: categoryName,
         type: ChannelType.GuildCategory,
-        reason: 'Archivage automatique des projets terminés'
+        reason: 'Automatic archiving of completed projects'
       });
     }
     
-    // Retirer l'accès au codeur
+    // Remove access from the coder
     if (coderId) {
       await channel.permissionOverwrites.edit(coderId, {
         ViewChannel: false
       });
-      logger.info(`Accès retiré au codeur ${coderId} pour le canal ${channel.name}`);
+      logger.info(`Access removed from coder ${coderId} for channel ${channel.name}`);
     }
     
-    // Déplacer le canal sans modifier les autres permissions
+    // Move the channel without modifying other permissions
     await channel.setParent(category.id, { lockPermissions: false });
     
     return true;
   } catch (error) {
-    logger.error('Erreur lors du déplacement du canal:', error);
+    logger.error('Error moving channel:', error);
     return false;
   }
 }
 
-module.exports = { moveChannelToMonthlyCategory };
+module.exports = {
+  moveChannelToMonthlyCategory
+};

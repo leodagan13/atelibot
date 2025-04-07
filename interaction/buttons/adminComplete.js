@@ -25,7 +25,7 @@ async function handleAdminCompletion(interaction, orderId) {
     const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
-        content: 'Cette offre n\'existe plus.',
+        content: 'This offer no longer exists.',
         ephemeral: true
       });
     }
@@ -37,7 +37,7 @@ async function handleAdminCompletion(interaction, orderId) {
     
     if (!isAdmin) {
       return interaction.reply({
-        content: 'Vous n\'avez pas la permission de clôturer ce projet. Seuls les administrateurs peuvent le faire.',
+        content: 'You do not have permission to close this project. Only administrators can do this.',
         ephemeral: true
       });
     }
@@ -45,7 +45,7 @@ async function handleAdminCompletion(interaction, orderId) {
     // Vérifier que l'offre est au statut ASSIGNED
     if (order.status !== 'ASSIGNED') {
       return interaction.reply({
-        content: `Ce projet ne peut pas être clôturé car il est au statut ${order.status}.`,
+        content: `This project cannot be closed because it has status ${order.status}.`,
         ephemeral: true
       });
     }
@@ -63,7 +63,7 @@ async function handleAdminCompletion(interaction, orderId) {
     
     // Répondre à l'interaction
     await interaction.reply({
-      content: 'Le projet a été clôturé avec succès.',
+      content: 'The project has been closed successfully.',
       ephemeral: true
     });
     
@@ -96,7 +96,7 @@ async function handleAdminCompletion(interaction, orderId) {
           
           // Message explicatif
           await interaction.channel.send({
-            content: `<@${interaction.user.id}>, veuillez noter le travail de <@${order.assignedto}> en sélectionnant une note ci-dessus.`
+            content: `<@${interaction.user.id}>, please rate the work of <@${order.assignedto}> by selecting a rating above.`
           });
         }, 2000);
       }
@@ -133,7 +133,7 @@ async function handleAdminCompletion(interaction, orderId) {
   } catch (error) {
     logger.error('Error handling admin completion:', error);
     await interaction.reply({
-      content: 'Une erreur est survenue lors de la clôture du projet.',
+      content: 'An error occurred while closing the project.',
       ephemeral: true
     });
   }

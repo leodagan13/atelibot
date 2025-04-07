@@ -21,7 +21,7 @@ async function handleOrderCompletion(interaction, orderId) {
     const order = await orderDB.findById(orderId);
     if (!order) {
       return interaction.reply({
-        content: 'Cette offre n\'existe plus.',
+        content: 'This order no longer exists.',
         ephemeral: true
       });
     }
@@ -29,7 +29,7 @@ async function handleOrderCompletion(interaction, orderId) {
     // Vérifier si l'utilisateur est le codeur assigné ou l'admin qui a posté l'offre
     if (order.assignedto !== userId && order.adminid !== userId) {
       return interaction.reply({
-        content: 'Vous n\'êtes pas autorisé à terminer cette offre.',
+        content: 'You are not authorized to complete this order.',
         ephemeral: true
       });
     }
@@ -37,7 +37,7 @@ async function handleOrderCompletion(interaction, orderId) {
     // Vérifier que l'offre est au statut ASSIGNED
     if (order.status !== 'ASSIGNED') {
       return interaction.reply({
-        content: `Cette offre ne peut pas être terminée car elle est au statut ${order.status}.`,
+        content: `This order cannot be completed because it has status ${order.status}.`,
         ephemeral: true
       });
     }
@@ -55,7 +55,7 @@ async function handleOrderCompletion(interaction, orderId) {
     
     // Répondre à l'interaction
     await interaction.reply({
-      content: 'Félicitations! L\'offre a été marquée comme terminée.',
+      content: 'Congratulations! The order has been marked as completed.',
       ephemeral: true
     });
     
@@ -103,7 +103,7 @@ async function handleOrderCompletion(interaction, orderId) {
   } catch (error) {
     logger.error('Error handling order completion:', error);
     await interaction.reply({
-      content: 'Une erreur est survenue lors de la complétion de l\'offre.',
+      content: 'An error occurred while completing the order.',
       ephemeral: true
     });
   }

@@ -28,7 +28,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     // Vérifier si l'utilisateur est le codeur assigné ou l'admin qui a posté l'offre
     if (order.assignedto !== userId && order.adminid !== userId) {
       return interaction.reply({
-        content: 'Vous n\'êtes pas autorisé à mettre à jour le statut de cette offre.',
+        content: 'You are not authorized to update the status of this order.',
         ephemeral: true
       });
     }
@@ -142,7 +142,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     
     // Envoyer un message de notification dans le canal
     await interaction.channel.send({
-      content: `**Mise à jour du projet #${orderId}**: Le statut est maintenant "${getStatusLabel(newStatus)}" (mis à jour par <@${userId}>).`
+      content: `**Project Update #${orderId}**: The status is now "${getStatusLabel(newStatus)}" (updated by <@${userId}>).`
     });
     
     // Si le statut est CANCELLED, envoyer un message dans le canal d'historique
@@ -165,7 +165,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
             { name: 'Rémunération', value: order.compensation },
             { name: 'Codeur', value: order.assignedto ? `<@${order.assignedto}>` : 'Non assigné' },
             { name: 'Admin responsable', value: `<@${order.adminid}>` },
-            { name: `${newStatus === 'COMPLETED' ? 'Terminée' : 'Annulée'} par`, value: `<@${userId}>` }
+            { name: `${newStatus === 'COMPLETED' ? 'Completed' : 'Cancelled'} by`, value: `<@${userId}>` }
           );
           
         // Ajouter la durée du projet si c'est une complétion
