@@ -69,9 +69,9 @@ async function handleAdminCompletion(interaction, orderId) {
     
     // Envoyer un message de confirmation dans le canal
     const embed = createNotification(
-        'Admin Verification Complete',
-        `The project #${order.orderid} has been verified and marked as completed by an administrator.`,
-        'SUCCESS'
+      'Admin Verification Complete',
+      `The project #${order.orderid} has been verified and marked as completed by an administrator.`,
+      'SUCCESS'
     );
     
     const logoAttachment = getLogoAttachment();
@@ -186,9 +186,9 @@ function getProjectDuration(order) {
   const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
   
   if (days > 0) {
-    return `${days} jour(s), ${hours} heure(s)`;
+    return `${days} day(s), ${hours} hour(s)`;
   } else {
-    return `${hours} heure(s), ${minutes} minute(s)`;
+    return `${hours} hour(s), ${minutes} minute(s)`;
   }
 }
 

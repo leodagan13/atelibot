@@ -40,12 +40,12 @@ async function handleOrderStatusUpdate(interaction, orderId) {
     switch (selectedValue) {
       case 'in_progress':
         newStatus = 'ASSIGNED'; // Déjà assigné, juste une confirmation
-        message = 'Le projet est marqué comme étant en cours.';
+        message = 'The project is marked as in progress.';
         break;
         
       case 'completed':
         newStatus = 'COMPLETED';
-        message = 'Félicitations! Le projet a été marqué comme terminé.';
+        message = 'Congratulations! The project has been marked as completed.';
         
         // Si c'est le codeur qui complète l'offre, mettre à jour son profil
         if (userId === order.assignedto) {
@@ -55,7 +55,7 @@ async function handleOrderStatusUpdate(interaction, orderId) {
         
       case 'cancelled':
         newStatus = 'CANCELLED';
-        message = 'Le projet a été annulé.';
+        message = 'The project has been cancelled.';
         
         // Libérer le codeur pour qu'il puisse prendre d'autres offres
         if (order.assignedto) {
@@ -154,12 +154,12 @@ async function handleOrderStatusUpdate(interaction, orderId) {
       if (historyChannel) {
         const color = newStatus === 'COMPLETED' ? '#00FF00' : '#FF0000';
         const emoji = newStatus === 'COMPLETED' ? '✅' : '❌';
-        const title = newStatus === 'COMPLETED' ? 'Commande terminée' : 'Commande annulée';
+        const title = newStatus === 'COMPLETED' ? 'Order Completed' : 'Order Cancelled';
         
         const historyEmbed = new EmbedBuilder()
           .setColor(color)
           .setTitle(`${emoji} ${title} #${order.orderid}`)
-          .setDescription(`La commande a été ${newStatus === 'COMPLETED' ? 'terminée' : 'annulée'}.`)
+          .setDescription(`The order has been ${newStatus === 'COMPLETED' ? 'completed' : 'cancelled'}.`)
           .addFields(
             { name: 'Client', value: 'Client confidentiel' },
             { name: 'Rémunération', value: order.compensation },
@@ -219,10 +219,10 @@ async function updateChannelEmbed(interaction, order, newStatus) {
  */
 function getStatusLabel(status) {
   switch (status) {
-    case 'OPEN': return '🟢 Ouvert';
-    case 'ASSIGNED': return '🟠 En cours';
-    case 'COMPLETED': return '✅ Terminé';
-    case 'CANCELLED': return '❌ Annulé';
+    case 'OPEN': return '🟢 Open';
+    case 'ASSIGNED': return '🟠 In Progress';
+    case 'COMPLETED': return '✅ Completed';
+    case 'CANCELLED': return '❌ Cancelled';
     default: return status;
   }
 }

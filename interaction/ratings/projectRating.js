@@ -17,15 +17,14 @@ async function sendRatingInterface(channel, projectData, developer, admin) {
     // Créer l'embed pour le vote
     const embed = new EmbedBuilder()
       .setColor('#2F3136') // Couleur gris foncé comme dans le screenshot
-      .setTitle(`Évaluation du Projet #${projectData.orderid}`)
-      .setDescription(`Évaluez le travail de <@${developer.id}> sur ce projet.\nChaque niveau d'étoile accorde un montant différent d'XP.`)
+      .setTitle(`Project Evaluation #${projectData.orderid}`)
+      .setDescription('Please evaluate the quality of the work done on this project.')
       .addFields(
-        { name: 'Projet', value: `#${projectData.orderid}`, inline: true },
-        { name: 'Développeur', value: `<@${developer.id}>`, inline: true },
-        { name: 'Niveau du projet', value: `${projectData.level ? `Niveau ${projectData.level}` : 'Non défini'}`, inline: true }
+        { name: 'Developer', value: `<@${developer.id}>`, inline: true },
+        { name: 'Project Level', value: `${projectData.level ? `Level ${projectData.level}` : 'Not defined'}`, inline: true }
       )
       .setFooter({ 
-        text: `Demandé par ${admin.tag}`,
+        text: `Requested by ${admin.tag}`,
         iconURL: admin.displayAvatarURL()
       })
       .setTimestamp();
@@ -152,14 +151,14 @@ async function handleRatingVote(interaction) {
     }
     
     // Mettre à jour le message original
-    const votedEmbed = EmbedBuilder.from(originalMessage.embeds[0])
-      .setColor(rating === 0 ? '#ED4245' : '#5865F2')
-      .setTitle(`Évaluation Terminée: ${rating === 0 ? 'Échec ❌' : rating + '⭐'}`)
-      .setDescription(`Le projet #${projectId} a été évalué par <@${interaction.user.id}>\n` +
-                    `Note: ${rating === 0 ? 'Échec ❌' : '⭐'.repeat(rating)}`);
+    const resultEmbed = new EmbedBuilder()
+      .setColor(rating === 0 ? '#FF0000' : '#00FF00')
+      .setTitle(`Evaluation Completed: ${rating === 0 ? 'Failed ❌' : rating + '⭐'}`)
+      .setDescription(`The project #${projectId} has been evaluated by <@${interaction.user.id}>\n` +
+                    `Note: ${rating === 0 ? 'Failed ❌' : '⭐'.repeat(rating)}`);
     
     await originalMessage.edit({
-      embeds: [votedEmbed],
+      embeds: [resultEmbed],
       components: disabledRows
     });
     
@@ -183,25 +182,25 @@ async function handleRatingVote(interaction) {
       case 'BANNED':
         confirmEmbed = new EmbedBuilder()
           .setColor('#000000')
-          .setTitle('⛔ Développeur Banni')
-          .setDescription(`Suite à l'échec du projet, <@${developerId}> a été banni du système d'XP.`)
+          .setTitle('⛔ Developer Banned')
+          .setDescription(`Due to the failure of the project, <@${developerId}> has been banned from the XP system.`)
           .setThumbnail(developer.displayAvatarURL());
         break;
       case 'LEVEL_DOWN':
         confirmEmbed = new EmbedBuilder()
           .setColor('#ED4245')
-          .setTitle('📉 Niveau Perdu')
-          .setDescription(`<@${developerId}> est redescendu au niveau ${result.newLevel} suite à l'échec du projet.`)
+          .setTitle('📉 Level Lost')
+          .setDescription(`<@${developerId}> has been demoted to level ${result.newLevel} due to the failure of the project.`)
           .setThumbnail(developer.displayAvatarURL());
         break;
       case 'LEVEL_UP':
         confirmEmbed = new EmbedBuilder()
           .setColor('#3BA55D')
-          .setTitle(`🎉 Niveau ${result.newLevel} Atteint!`)
-          .setDescription(`<@${developerId}> est passé au niveau ${result.newLevel} grâce à son travail sur ce projet!`)
+          .setTitle(`🎉 Level ${result.newLevel} Reached!`)
+          .setDescription(`<@${developerId}> has been promoted to level ${result.newLevel} thanks to their work on this project!`)
           .addFields(
             { name: 'Note', value: '⭐'.repeat(rating), inline: true },
-            { name: 'XP Gagné', value: `+${result.xpEarned} XP`, inline: true },
+            { name: 'XP Earned', value: `+${result.xpEarned} XP`, inline: true },
             { name: 'XP Total', value: `${result.totalXP} XP`, inline: true }
           )
           .setThumbnail(developer.displayAvatarURL());
@@ -209,11 +208,11 @@ async function handleRatingVote(interaction) {
       default:
         confirmEmbed = new EmbedBuilder()
           .setColor('#5865F2')
-          .setTitle(`💫 XP Gagné: +${result.xpEarned} XP`)
-          .setDescription(`<@${developerId}> a reçu ${result.xpEarned} XP pour son travail.`)
+          .setTitle(`💫 XP Earned: +${result.xpEarned} XP`)
+          .setDescription(`<@${developerId}> has earned ${result.xpEarned} XP for their work.`)
           .addFields(
             { name: 'Note', value: '⭐'.repeat(rating), inline: true },
-            { name: 'Niveau actuel', value: `Niveau ${result.newLevel}`, inline: true },
+            { name: 'Current Level', value: `Level ${result.newLevel}`, inline: true },
             { name: 'XP Total', value: `${result.totalXP} XP`, inline: true }
           )
           .setThumbnail(developer.displayAvatarURL());
@@ -221,7 +220,7 @@ async function handleRatingVote(interaction) {
         if (result.nextLevelXP) {
           const progressBar = createProgressBar(result.progressPercentage);
           confirmEmbed.addFields(
-            { name: `Progression vers Niveau ${result.newLevel + 1}`, value: progressBar }
+            { name: `Progression to Level ${result.newLevel + 1}`, value: progressBar }
           );
         }
     }
@@ -244,32 +243,32 @@ async function handleRatingVote(interaction) {
         case 'BANNED':
           dmEmbed = new EmbedBuilder()
             .setColor('#000000')
-            .setTitle('⛔ Vous avez été banni du système')
-            .setDescription(`Suite à l'échec du projet #${projectId}, vous avez été banni du système de progression.`)
-            .setFooter({ text: 'Contactez un administrateur pour plus d\'informations.' });
+            .setTitle('⛔ You have been banned from the system')
+            .setDescription(`Due to the failure of the project #${projectId}, you have been banned from the progression system.`)
+            .setFooter({ text: 'Contact an administrator for more information.' });
           break;
         case 'LEVEL_DOWN':
           dmEmbed = new EmbedBuilder()
             .setColor('#ED4245')
-            .setTitle('📉 Vous avez perdu un niveau')
-            .setDescription(`Suite à l'échec du projet #${projectId}, vous êtes redescendu au niveau ${result.newLevel}.`)
-            .setFooter({ text: 'Continuez à vous améliorer pour regagner votre niveau!' });
+            .setTitle('📉 You have lost a level')
+            .setDescription(`Due to the failure of the project #${projectId}, you have been demoted to level ${result.newLevel}.`)
+            .setFooter({ text: 'Keep improving to regain your level!' });
           break;
         case 'LEVEL_UP':
           dmEmbed = new EmbedBuilder()
             .setColor('#3BA55D')
-            .setTitle(`🎉 Félicitations! Niveau ${result.newLevel} atteint!`)
-            .setDescription(`Vous venez de passer au niveau ${result.newLevel} grâce à votre travail sur le projet #${projectId}!`)
+            .setTitle(`🎉 Congratulations! Level ${result.newLevel} reached!`)
+            .setDescription(`You have just passed to level ${result.newLevel} thanks to your work on the project #${projectId}!`)
             .addFields(
               { name: 'Note', value: '⭐'.repeat(rating), inline: true },
-              { name: 'XP Gagné', value: `+${result.xpEarned} XP`, inline: true }
+              { name: 'XP Earned', value: `+${result.xpEarned} XP`, inline: true }
             );
           break;
         default:
           dmEmbed = new EmbedBuilder()
             .setColor('#5865F2')
-            .setTitle(`💫 +${result.xpEarned} XP gagné`)
-            .setDescription(`Vous avez reçu ${result.xpEarned} XP pour votre travail sur le projet #${projectId}.`)
+            .setTitle(`💫 +${result.xpEarned} XP earned`)
+            .setDescription(`You have earned ${result.xpEarned} XP for your work on the project #${projectId}.`)
             .addFields(
               { name: 'Note', value: '⭐'.repeat(rating), inline: true }
             );
@@ -277,7 +276,7 @@ async function handleRatingVote(interaction) {
           if (result.nextLevelXP) {
             const progressBar = createProgressBar(result.progressPercentage);
             dmEmbed.addFields(
-              { name: `Progression vers Niveau ${result.newLevel + 1}`, value: progressBar },
+              { name: `Progression to Level ${result.newLevel + 1}`, value: progressBar },
               { name: 'XP total', value: `${result.totalXP} / ${result.nextLevelXP} XP` }
             );
           }
@@ -298,9 +297,9 @@ async function handleRatingVote(interaction) {
         if (announcementChannel) {
           const announcementEmbed = new EmbedBuilder()
             .setColor('#FFD700')
-            .setTitle(`🏆 Niveau ${result.newLevel} atteint!`)
+            .setTitle(`🏆 Level ${result.newLevel} reached!`)
             .setThumbnail(developer.displayAvatarURL())
-            .setDescription(`Félicitations à <@${developer.id}> qui vient d'atteindre le niveau ${result.newLevel}!\n\nUn véritable expert en développement!`);
+            .setDescription(`Congratulations to <@${developer.id}> who has just reached level ${result.newLevel}!\n\nA true expert in development!`);
           
           await announcementChannel.send({ embeds: [announcementEmbed] });
         }
@@ -314,7 +313,7 @@ async function handleRatingVote(interaction) {
     
     try {
       await interaction.followUp({
-        content: 'Une erreur est survenue lors du traitement de votre vote.',
+        content: 'An error occurred while processing your vote.',
         ephemeral: true
       });
     } catch (followupError) {

@@ -66,17 +66,17 @@ module.exports = {
       // Command not found
       if (!command) {
         logger.info(`Command not found: ${commandName} ${args.join(' ')}`);
-        return message.reply(`Commande non reconnue: ${commandName}`);
+        return message.reply(`Unrecognized command: ${commandName}`);
       }
       
       // Check permissions
       if (command.permissions && !checkPermissions(message.member, command.permissions)) {
-        return message.reply('Vous n\'avez pas la permission d\'utiliser cette commande.');
+        return message.reply('You do not have permission to use this command.');
       }
       
       // Check channel restriction
       if (command.requiredChannel && message.channel.id !== command.requiredChannel) {
-        return message.reply(`Cette commande ne peut être utilisée que dans le canal <#${command.requiredChannel}>.`);
+        return message.reply(`This command can only be used in the channel <#${command.requiredChannel}>.`);
       }
       
       // Execute command
@@ -85,7 +85,7 @@ module.exports = {
         await command.execute(message, args, client);
       } catch (error) {
         logger.error(`Error executing command ${commandName}:`, error);
-        message.reply('Une erreur est survenue lors de l\'exécution de cette commande.');
+        message.reply('An error occurred while executing this command.');
       }
     }
   }

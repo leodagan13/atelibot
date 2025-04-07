@@ -113,7 +113,7 @@ async function createPrivateChannel(guild, order, coderId) {
   }
   
   return await guild.channels.create({
-    name: `projet-${order.orderid}`,
+    name: `project-${order.orderid}`,
     type: ChannelType.GuildText,
     parent: category ? category.id : null, // Set the parent category
     permissionOverwrites: [

@@ -168,9 +168,9 @@ function getProjectDuration(order) {
   const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
   
   if (days > 0) {
-    return `${days} jour(s), ${hours} heure(s)`;
+    return `${days} day(s), ${hours} hour(s)`;
   } else {
-    return `${hours} heure(s), ${minutes} minute(s)`;
+    return `${hours} hour(s), ${minutes} minute(s)`;
   }
 }
 
