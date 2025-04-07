@@ -12,10 +12,10 @@ const logger = require('../../utils/logger');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('add')
-    .setDescription('Créer une nouvelle offre de travail'),
+    .setDescription('Create a new job offer'),
   
   name: 'add',
-  description: 'Créer une nouvelle offre de travail',
+  description: 'Create a new job offer',
   requiredChannel: CREATE_ORDERS_CHANNEL_ID,
   
   async execute(interaction, args, client) {
@@ -26,7 +26,7 @@ module.exports = {
       
       // Check if user is already creating an order
       if (client.activeOrders.has(userId)) {
-        const reply = 'Vous avez déjà une création d\'offre en cours. Terminez-la ou annulez-la avant d\'en créer une nouvelle.';
+        const reply = 'You already have an order creation in progress. Complete or cancel it before creating a new one.';
         return isSlash ? interaction.reply({ content: reply, ephemeral: true }) : interaction.reply(reply);
       }
       
@@ -41,27 +41,27 @@ module.exports = {
         // Create the first modal - Basic information
         const modal = new ModalBuilder()
           .setCustomId(`create_order_details_${userId}`)
-          .setTitle('Nouvelle offre - Informations principales');
+          .setTitle('New Offer - Main Information');
 
         // Add form fields for first modal
         const clientNameInput = new TextInputBuilder()
           .setCustomId('clientName')
-          .setLabel('Nom du client (confidentiel)')
-          .setPlaceholder('Entrez le nom du client')
+          .setLabel('Client name (confidential)')
+          .setPlaceholder('Enter the client name')
           .setRequired(true)
           .setStyle(TextInputStyle.Short);
 
         const compensationInput = new TextInputBuilder()
           .setCustomId('compensation')
-          .setLabel('Rémunération pour le codeur')
-          .setPlaceholder('Ex: 20€, 2 crédits, etc...')
+          .setLabel('Compensation for the coder')
+          .setPlaceholder('Ex: 20€, 2 credits, etc...')
           .setRequired(true)
           .setStyle(TextInputStyle.Short);
 
         const descriptionInput = new TextInputBuilder()
           .setCustomId('description')
-          .setLabel('Description du travail')
-          .setPlaceholder('Décrivez le travail à réaliser en détail')
+          .setLabel('Work description')
+          .setPlaceholder('Describe the work to be done in detail')
           .setRequired(true)
           .setStyle(TextInputStyle.Paragraph)
           .setMaxLength(1000);
@@ -78,7 +78,7 @@ module.exports = {
         await interaction.showModal(modal);
       } else {
         // For prefix commands, redirect to slash command
-        await interaction.reply('Veuillez utiliser la slash command `/add` pour créer une nouvelle offre.');
+        await interaction.reply('Please use the slash command `/add` to create a new offer.');
       }
       
       logger.info(`Order creation started for ${isSlash ? interaction.user.tag : interaction.author.tag}`);
@@ -88,12 +88,12 @@ module.exports = {
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {
-          await interaction.followUp({ content: 'Une erreur est survenue lors du démarrage de la création d\'offre.', ephemeral: true });
+          await interaction.followUp({ content: 'An error occurred while starting the order creation.', ephemeral: true });
         } else {
-          await interaction.reply({ content: 'Une erreur est survenue lors du démarrage de la création d\'offre.', ephemeral: true });
+          await interaction.reply({ content: 'An error occurred while starting the order creation.', ephemeral: true });
         }
       } else {
-        interaction.reply('Une erreur est survenue lors du démarrage de la création d\'offre.');
+        interaction.reply('An error occurred while starting the order creation.');
       }
     }
   }

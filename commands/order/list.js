@@ -10,16 +10,16 @@ const { appearance } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('order_list')
-    .setDescription('Liste toutes les offres actives')
+    .setDescription('List all active orders')
     .addStringOption(option =>
       option.setName('status')
-        .setDescription('Filtrer par statut')
+        .setDescription('Filter by status')
         .setRequired(false)
         .addChoices(
-          { name: 'Ouvertes', value: 'OPEN' },
-          { name: 'Assignées', value: 'ASSIGNED' },
-          { name: 'Terminées', value: 'COMPLETED' },
-          { name: 'Toutes', value: 'ALL' }
+          { name: 'Open', value: 'OPEN' },
+          { name: 'Assigned', value: 'ASSIGNED' },
+          { name: 'Completed', value: 'COMPLETED' },
+          { name: 'All', value: 'ALL' }
         )),
   
   name: 'order_list',
@@ -64,7 +64,7 @@ module.exports = {
       }
       
       if (orders.length === 0) {
-        const replyContent = `Aucune offre avec le statut "${status}" trouvée.`;
+        const replyContent = `No orders found with status "${status}".`;
         return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
@@ -88,7 +88,7 @@ module.exports = {
       
     } catch (error) {
       logger.error('Error listing orders:', error);
-      const errorMessage = 'Une erreur est survenue lors de la récupération des offres.';
+      const errorMessage = 'An error occurred while retrieving the orders.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

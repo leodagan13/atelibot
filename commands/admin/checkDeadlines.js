@@ -1,4 +1,4 @@
-// commands/admin/checkDeadlines.js - Commande pour vérifier les deadlines approchantes
+// commands/admin/checkDeadlines.js - Command to check approaching deadlines
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { EmbedBuilder } = require('discord.js');
 const { orderDB } = require('../../database');
@@ -10,63 +10,63 @@ const { appearance } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('check_deadlines')
-    .setDescription('Vérifie les deadlines approchantes et notifie les utilisateurs concernés'),
+    .setDescription('Check approaching deadlines and notify concerned users'),
   
   name: 'check_deadlines',
-  description: 'Vérifie les deadlines approchantes',
+  description: 'Check approaching deadlines',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction slash command
+      // Determine if this is a slash command
       const isSlash = interaction.isChatInputCommand?.();
       
       if (isSlash) {
         await interaction.deferReply();
       } else {
-        await interaction.reply('Vérification des deadlines en cours...');
+        await interaction.reply('Checking deadlines...');
       }
       
-      // Récupérer les offres avec deadlines approchantes
+      // Get orders with approaching deadlines
       const approachingDeadlines = await orderDB.getApproachingDeadlines();
       
       if (approachingDeadlines.length === 0) {
-        const replyContent = 'Aucune deadline approchante trouvée.';
+        const replyContent = 'No approaching deadlines found.';
         return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
-      // Créer un embed pour afficher les deadlines approchantes
+      // Create an embed to display approaching deadlines
       const embed = new EmbedBuilder()
-        .setColor('#FF9900') // Orange pour l'urgence
-        .setTitle('⏰ Deadlines Approchantes')
-        .setDescription(`${approachingDeadlines.length} projet(s) ont des deadlines dans les prochaines 48 heures.`)
+        .setColor('#FF9900') // Orange for urgency
+        .setTitle('⏰ Approaching Deadlines')
+        .setDescription(`${approachingDeadlines.length} project(s) have deadlines in the next 48 hours.`)
         .setThumbnail('attachment://logo.png')
         .setTimestamp();
       
       let notificationsSent = 0;
       
-      // Ajouter chaque deadline à l'embed et envoyer des notifications
+      // Add each deadline to the embed and send notifications
       for (const order of approachingDeadlines) {
         const deadlineDate = new Date(order.deadline);
         const discordTimestamp = Math.floor(deadlineDate.getTime() / 1000);
         
         embed.addFields({
-          name: `Projet #${order.orderid}`,
+          name: `Project #${order.orderid}`,
           value: `**Deadline:** <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>)\n` +
-                 `**Développeur:** ${order.assignedto ? `<@${order.assignedto}>` : 'Non assigné'}\n` +
-                 `**Administrateur:** <@${order.adminid}>\n` +
+                 `**Developer:** ${order.assignedto ? `<@${order.assignedto}>` : 'Not assigned'}\n` +
+                 `**Administrator:** <@${order.adminid}>\n` +
                  `**Compensation:** ${order.compensation}`
         });
         
-        // Trouver le canal privé du projet
+        // Find the project's private channel
         const privateChannel = client.channels.cache.find(
           c => c.name === `projet-${order.orderid}` || c.name === `project-${order.orderid}`
         );
         
         if (privateChannel && order.assignedto) {
-          // Envoyer une notification dans le canal privé
+          // Send a notification in the private channel
           await privateChannel.send({
-            content: `⚠️ **RAPPEL IMPORTANT:** <@${order.assignedto}> <@${order.adminid}> La deadline de ce projet est <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>). Veuillez vérifier l'avancement du travail.`
+            content: `⚠️ **IMPORTANT REMINDER:** <@${order.assignedto}> <@${order.adminid}> The deadline for this project is <t:${discordTimestamp}:F> (<t:${discordTimestamp}:R>). Please check the work progress.`
           });
           
           notificationsSent++;
@@ -75,26 +75,26 @@ module.exports = {
       
       const logoAttachment = getLogoAttachment();
       
-      // Répondre avec l'embed
+      // Reply with embed
       if (isSlash) {
         await interaction.editReply({ 
-          content: `${notificationsSent} notification(s) envoyée(s) dans les canaux de projet.`,
+          content: `${notificationsSent} notification(s) sent in project channels.`,
           embeds: [embed],
           files: [logoAttachment]
         });
       } else {
         await interaction.reply({ 
-          content: `${notificationsSent} notification(s) envoyée(s) dans les canaux de projet.`,
+          content: `${notificationsSent} notification(s) sent in project channels.`,
           embeds: [embed],
           files: [logoAttachment]
         });
       }
       
-      logger.info(`${notificationsSent} notifications de deadline envoyées pour ${approachingDeadlines.length} projets`);
+      logger.info(`${notificationsSent} deadline notifications sent for ${approachingDeadlines.length} projects`);
       
     } catch (error) {
       logger.error('Error checking deadlines:', error);
-      const errorMessage = 'Une erreur est survenue lors de la vérification des deadlines.';
+      const errorMessage = 'An error occurred while checking deadlines.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

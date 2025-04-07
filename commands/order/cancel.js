@@ -9,10 +9,10 @@ const { appearance } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('order_cancel')
-    .setDescription('Annuler une offre existante')
+    .setDescription('Cancel an existing order')
     .addStringOption(option =>
       option.setName('orderid')
-        .setDescription('ID de l\'offre à annuler')
+        .setDescription('ID of the order to cancel')
         .setRequired(true)),
   
   name: 'order_cancel',
@@ -34,7 +34,7 @@ module.exports = {
       } else {
         // For prefix commands
         if (!args.length) {
-          return interaction.reply('Veuillez fournir l\'ID de l\'offre à annuler. Exemple: `$order cancel 1234`');
+          return interaction.reply('Please provide the order ID to cancel. Example: `$order cancel 1234`');
         }
         orderid = args[0];
       }
@@ -43,7 +43,7 @@ module.exports = {
       const order = await orderDB.findById(orderid);
       
       if (!order) {
-        const replyContent = `Aucune offre trouvée avec l'ID ${orderid}.`;
+        const replyContent = `No order found with ID ${orderid}.`;
         return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
@@ -54,7 +54,7 @@ module.exports = {
           : interaction.member.roles.cache.some(role => adminRoles.includes(role.name));
         
         if (!isAdmin) {
-          const replyContent = 'Vous ne pouvez annuler que les offres que vous avez créées.';
+          const replyContent = 'You can only cancel orders that you have created.';
           return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
         }
       }
@@ -67,7 +67,7 @@ module.exports = {
       // Update order status
       await orderDB.updateStatus(orderid, 'CANCELLED');
       
-      // Supprimer le message dans le canal de publication approprié
+      // Delete the message in the appropriate publication channel
       const newStatus = 'CANCELLED';
       if (newStatus === 'CANCELLED') {
         try {
@@ -130,7 +130,7 @@ module.exports = {
           const privateChannel = guild.channels.cache.get(order.privatechannelid);
           if (privateChannel) {
             await privateChannel.send({
-              content: `⚠️ **Cette offre a été annulée par <@${userId}>.**`
+              content: `⚠️ **This order has been cancelled by <@${userId}>.**`
             });
             
             // Archive channel if possible
@@ -153,7 +153,7 @@ module.exports = {
       
       const logoAttachment = getLogoAttachment();
       
-      const successMessage = `L'offre #${orderid} a été annulée avec succès.`;
+      const successMessage = `Order #${orderid} has been successfully cancelled.`;
       isSlash ? 
         interaction.editReply({ 
           content: successMessage, 
@@ -169,7 +169,7 @@ module.exports = {
       
     } catch (error) {
       logger.error(`Error cancelling order:`, error);
-      const errorMessage = 'Une erreur est survenue lors de l\'annulation de l\'offre.';
+      const errorMessage = 'An error occurred while cancelling the order.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

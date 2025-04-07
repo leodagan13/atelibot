@@ -12,7 +12,7 @@ async function handleCommand(interaction, client) {
   if (!command) {
     logger.error(`Slash command not found: ${interaction.commandName}`);
     return interaction.reply({
-      content: 'Cette commande n\'existe pas.',
+      content: 'This command does not exist.',
       ephemeral: true
     });
   }
@@ -25,12 +25,12 @@ async function handleCommand(interaction, client) {
     
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp({
-        content: 'Une erreur est survenue lors de l\'exécution de cette commande.',
+        content: 'An error occurred while executing this command.',
         ephemeral: true
       });
     } else {
       await interaction.reply({
-        content: 'Une erreur est survenue lors de l\'exécution de cette commande.',
+        content: 'An error occurred while executing this command.',
         ephemeral: true
       });
     }

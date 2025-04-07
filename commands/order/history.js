@@ -10,23 +10,23 @@ const { appearance } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('order_history')
-    .setDescription('Affiche l\'historique des commandes')
+    .setDescription('Display order history')
     .addStringOption(option =>
       option.setName('status')
-        .setDescription('Filtrer par statut')
+        .setDescription('Filter by status')
         .setRequired(false)
         .addChoices(
-          { name: 'Terminées', value: 'COMPLETED' },
-          { name: 'Annulées', value: 'CANCELLED' },
-          { name: 'Toutes', value: 'ALL' }
+          { name: 'Completed', value: 'COMPLETED' },
+          { name: 'Cancelled', value: 'CANCELLED' },
+          { name: 'All', value: 'ALL' }
         ))
     .addIntegerOption(option =>
       option.setName('limit')
-        .setDescription('Nombre maximum de commandes à afficher')
+        .setDescription('Maximum number of orders to display')
         .setRequired(false)),
   
   name: 'order_history',
-  description: 'Affiche l\'historique des commandes terminées',
+  description: 'Display completed orders history',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
@@ -74,7 +74,7 @@ module.exports = {
       const orders = await orderDB.getOrderHistory(limit, 0, filter);
       
       if (orders.length === 0) {
-        const replyContent = `Aucune commande ${filter !== 'ALL' ? `au statut ${filter}` : ''} trouvée dans l'historique.`;
+        const replyContent = `No orders ${filter !== 'ALL' ? `with status ${filter}` : ''} found in history.`;
         return isSlash ? interaction.editReply(replyContent) : interaction.reply(replyContent);
       }
       
@@ -101,7 +101,7 @@ module.exports = {
       
     } catch (error) {
       logger.error('Error fetching order history:', error);
-      const errorMessage = 'Une erreur est survenue lors de la récupération de l\'historique des commandes.';
+      const errorMessage = 'An error occurred while retrieving the order history.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

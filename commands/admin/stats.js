@@ -11,19 +11,19 @@ const { appearance } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('Affiche les statistiques des commandes et des codeurs')
+    .setDescription('Display order and coder statistics')
     .addStringOption(option =>
       option.setName('type')
-        .setDescription('Type de statistiques à afficher')
+        .setDescription('Type of statistics to display')
         .setRequired(false)
         .addChoices(
-          { name: 'Général', value: 'general' },
-          { name: 'Commandes', value: 'orders' },
-          { name: 'Codeurs', value: 'coders' }
+          { name: 'General', value: 'general' },
+          { name: 'Orders', value: 'orders' },
+          { name: 'Coders', value: 'coders' }
         )),
 
   name: 'stats',
-  description: 'Affiche les statistiques des commandes et des codeurs',
+  description: 'Display order and coder statistics',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
@@ -88,7 +88,7 @@ module.exports = {
       
     } catch (error) {
       logger.error('Error displaying statistics:', error);
-      const errorMessage = 'Une erreur est survenue lors de l\'affichage des statistiques.';
+      const errorMessage = 'An error occurred while displaying the statistics.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {
@@ -147,8 +147,8 @@ async function generateOrderStats() {
   // Create embed
   const embed = new EmbedBuilder()
     .setColor('#4B0082')
-    .setTitle('Statistiques Détaillées des Commandes')
-    .setDescription('Aperçu des tendances et des commandes récentes')
+    .setTitle('Detailed Order Statistics')
+    .setDescription('Overview of trends and recent orders')
     .setTimestamp();
   
   // Add monthly statistics
@@ -157,10 +157,10 @@ async function generateOrderStats() {
     monthlyStats.slice(0, 3).forEach(month => {
       const completionRate = month.total > 0 ? 
         Math.round((month.completed / month.total) * 100) : 0;
-      monthlyStatsText += `**${month.month}:** ${month.total} commandes, ${completionRate}% terminées\n`;
+      monthlyStatsText += `**${month.month}:** ${month.total} orders, ${completionRate}% completed\n`;
     });
     
-    embed.addFields({ name: '📅 Tendances Mensuelles', value: monthlyStatsText || 'Aucune donnée disponible' });
+    embed.addFields({ name: '📅 Monthly Trends', value: monthlyStatsText || 'No data available' });
   }
   
   // Add recent orders
@@ -170,10 +170,10 @@ async function generateOrderStats() {
       const statusEmoji = order.status === 'COMPLETED' ? '✅' : '❌';
       const date = order.completedAt ? new Date(order.completedAt).toLocaleDateString() : 'N/A';
       
-      recentOrdersText += `${statusEmoji} **#${order.orderid}** - Client confidentiel (${date})\n`;
+      recentOrdersText += `${statusEmoji} **#${order.orderid}** - Confidential client (${date})\n`;
     });
     
-    embed.addFields({ name: '🕒 Commandes Récentes', value: recentOrdersText || 'Aucune donnée disponible' });
+    embed.addFields({ name: '🕒 Recent Orders', value: recentOrdersText || 'No data available' });
   }
   
   return embed;
@@ -190,8 +190,8 @@ async function generateCoderStats() {
   if (!coderStats || coderStats.length === 0) {
     const embed = new EmbedBuilder()
       .setColor('#4B0082')
-      .setTitle('Statistiques des Codeurs')
-      .setDescription('Aucune statistique de codeur disponible.')
+      .setTitle('Coder Statistics')
+      .setDescription('No coder statistics available.')
       .setTimestamp();
     
     return embed;
@@ -200,8 +200,8 @@ async function generateCoderStats() {
   // Create embed
   const embed = new EmbedBuilder()
     .setColor('#4B0082')
-    .setTitle('Statistiques des Codeurs')
-    .setDescription('Performances des codeurs du serveur')
+    .setTitle('Coder Statistics')
+    .setDescription('Performance of server coders')
     .setTimestamp();
   
   // Add top coders
@@ -213,10 +213,10 @@ async function generateCoderStats() {
     const completionRate = coder.total > 0 ? 
       Math.round((coder.completed / coder.total) * 100) : 0;
     
-    topCodersText += `**${index + 1}. <@${coder.userid}>** - ${coder.completed} commandes terminées (${completionRate}%)\n`;
+    topCodersText += `**${index + 1}. <@${coder.userid}>** - ${coder.completed} completed orders (${completionRate}%)\n`;
   });
   
-  embed.addFields({ name: '🏆 Meilleurs Codeurs', value: topCodersText || 'Aucune donnée disponible' });
+  embed.addFields({ name: '🏆 Top Coders', value: topCodersText || 'No data available' });
   
   return embed;
 }
@@ -231,7 +231,7 @@ async function calculateAverageCompletionTimes() {
     
     if (error) throw error;
     
-    let formattedAvgTime = 'Non disponible';
+    let formattedAvgTime = 'Not available';
     let avgTimeMs = 0;
     
     if (data && data.avg_completion_time) {
@@ -244,16 +244,16 @@ async function calculateAverageCompletionTimes() {
       const minutes = Math.floor((avgTimeMs % (1000 * 60 * 60)) / (1000 * 60));
       
       if (days > 0) {
-        formattedAvgTime = `${days} jour(s), ${hours} heure(s)`;
+        formattedAvgTime = `${days} day(s), ${hours} hour(s)`;
       } else {
-        formattedAvgTime = `${hours} heure(s), ${minutes} minute(s)`;
+        formattedAvgTime = `${hours} hour(s), ${minutes} minute(s)`;
       }
     }
     
     return { avgTimeMs, formattedAvgTime };
   } catch (error) {
     logger.error('Error calculating average completion time:', error);
-    return { avgTimeMs: 0, formattedAvgTime: 'Non disponible' };
+    return { avgTimeMs: 0, formattedAvgTime: 'Not available' };
   }
 }
 

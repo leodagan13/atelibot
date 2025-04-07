@@ -1,4 +1,4 @@
-// commands/admin/messageDelete.js - Commande pour supprimer un nombre spécifique de messages
+// commands/admin/messageDelete.js - Command to delete a specific number of messages
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { adminRoles } = require('../../config/config');
 const logger = require('../../utils/logger');
@@ -6,15 +6,15 @@ const logger = require('../../utils/logger');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('message')
-    .setDescription('Commandes de gestion des messages')
+    .setDescription('Message management commands')
     .addSubcommand(subcommand =>
       subcommand
         .setName('delete')
-        .setDescription('Supprime un nombre spécifique de messages du canal actuel')
+        .setDescription('Delete a specific number of messages from the current channel')
         .addIntegerOption(option =>
           option
             .setName('amount')
-            .setDescription('Nombre de messages à supprimer (entre 1 et 100)')
+            .setDescription('Number of messages to delete (between 1 and 100)')
             .setMinValue(1)
             .setMaxValue(100)
             .setRequired(true)
@@ -22,92 +22,92 @@ module.exports = {
         .addStringOption(option =>
           option
             .setName('reason')
-            .setDescription('Raison de la suppression')
+            .setDescription('Reason for deletion')
             .setRequired(false)
         )
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   
   name: 'message_delete',
-  description: 'Supprime un nombre spécifique de messages du canal actuel',
+  description: 'Delete a specific number of messages from the current channel',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction de slash command ou un message traditionnel
+      // Determine if this is a slash command or traditional message
       const isSlash = interaction.isChatInputCommand?.();
       
-      // Pour les commandes traditionnelles
+      // For traditional commands
       if (!isSlash) {
-        // Vérifier les arguments
+        // Check arguments
         if (!args || args.length < 1) {
-          return interaction.reply('Usage incorrect. Exemple: `/message delete 10`');
+          return interaction.reply('Incorrect usage. Example: `/message delete 10`');
         }
         
-        // Vérifier si la commande est bien "delete"
+        // Check if the command is "delete"
         if (args[0].toLowerCase() !== 'delete') {
-          return interaction.reply('Sous-commande non reconnue. Utilisez `delete`.');
+          return interaction.reply('Unrecognized subcommand. Use `delete`.');
         }
         
-        // Obtenir le nombre de messages à supprimer
+        // Get the number of messages to delete
         const amount = parseInt(args[1]);
         
         if (isNaN(amount) || amount < 1 || amount > 100) {
-          return interaction.reply('Veuillez spécifier un nombre valide entre 1 et 100.');
+          return interaction.reply('Please specify a valid number between 1 and 100.');
         }
         
-        // Informer l'utilisateur que nous commençons la suppression
-        await interaction.reply(`Suppression de ${amount} message(s) en cours...`);
+        // Inform the user that we're starting the deletion
+        await interaction.reply(`Deleting ${amount} message(s)...`);
         
-        // Supprimer le message de commande lui-même
+        // Delete the command message itself
         await interaction.message.delete().catch(() => {});
         
-        // Supprimer les messages
+        // Delete the messages
         const messages = await interaction.channel.messages.fetch({ limit: amount });
         await interaction.channel.bulkDelete(messages, true)
           .then(deleted => {
-            // Si certains messages sont trop vieux (plus de 14 jours), ils ne seront pas supprimés
+            // If some messages are too old (more than 14 days), they won't be deleted
             const actuallyDeleted = deleted.size;
             const remainingMessages = amount - actuallyDeleted;
             
             if (remainingMessages > 0) {
-              interaction.channel.send(`Supprimé ${actuallyDeleted} message(s). ${remainingMessages} message(s) n'ont pas pu être supprimés car ils datent de plus de 14 jours.`);
+              interaction.channel.send(`Deleted ${actuallyDeleted} message(s). ${remainingMessages} message(s) could not be deleted because they are older than 14 days.`);
             } else {
-              interaction.channel.send(`${actuallyDeleted} message(s) ont été supprimés avec succès.`);
+              interaction.channel.send(`${actuallyDeleted} message(s) have been successfully deleted.`);
             }
           });
       }
-      // Pour les slash commands
+      // For slash commands
       else {
-        // Vérifier que c'est bien la sous-commande "delete"
+        // Check that it's the "delete" subcommand
         if (interaction.options.getSubcommand() !== 'delete') {
           return;
         }
         
-        // Obtenir le nombre de messages à supprimer et la raison
+        // Get the number of messages to delete and the reason
         const amount = interaction.options.getInteger('amount');
-        const reason = interaction.options.getString('reason') || 'Aucune raison spécifiée';
+        const reason = interaction.options.getString('reason') || 'No reason specified';
         
-        // Déférer la réponse pour éviter l'expiration de l'interaction pendant la suppression
+        // Defer the reply to avoid interaction timeout during deletion
         await interaction.deferReply({ ephemeral: true });
         
-        // Supprimer les messages
+        // Delete the messages
         try {
           const messages = await interaction.channel.messages.fetch({ limit: amount });
           const deleted = await interaction.channel.bulkDelete(messages, true);
           
-          // Si certains messages sont trop vieux (plus de 14 jours), ils ne seront pas supprimés
+          // If some messages are too old (more than 14 days), they won't be deleted
           const actuallyDeleted = deleted.size;
           const remainingMessages = amount - actuallyDeleted;
           
-          let responseMessage = `${actuallyDeleted} message(s) ont été supprimés avec succès.`;
+          let responseMessage = `${actuallyDeleted} message(s) have been successfully deleted.`;
           
           if (remainingMessages > 0) {
-            responseMessage += ` ${remainingMessages} message(s) n'ont pas pu être supprimés car ils datent de plus de 14 jours.`;
+            responseMessage += ` ${remainingMessages} message(s) could not be deleted because they are older than 14 days.`;
           }
           
-          // Logger l'action pour audit
-          logger.info(`${interaction.user.tag} a supprimé ${actuallyDeleted} message(s) dans #${interaction.channel.name}. Raison: ${reason}`);
+          // Log the action for audit
+          logger.info(`${interaction.user.tag} deleted ${actuallyDeleted} message(s) in #${interaction.channel.name}. Reason: ${reason}`);
           
           await interaction.editReply({
             content: responseMessage,
@@ -115,16 +115,16 @@ module.exports = {
           });
           
         } catch (error) {
-          logger.error('Erreur lors de la suppression des messages:', error);
+          logger.error('Error while deleting messages:', error);
           await interaction.editReply({
-            content: `Une erreur est survenue lors de la suppression des messages: ${error.message}`,
+            content: `An error occurred while deleting messages: ${error.message}`,
             ephemeral: true
           });
         }
       }
     } catch (error) {
-      logger.error('Erreur lors de l\'exécution de la commande message_delete:', error);
-      const errorMessage = 'Une erreur est survenue lors de l\'exécution de cette commande.';
+      logger.error('Error executing message_delete command:', error);
+      const errorMessage = 'An error occurred while executing this command.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

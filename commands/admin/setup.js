@@ -1,4 +1,4 @@
-// commands/admin/setup.js - Configuration du bot et de la base de données
+// commands/admin/setup.js - Bot and database configuration
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { EmbedBuilder } = require('discord.js');
 const supabase = require('../../database/supabase');
@@ -8,38 +8,38 @@ const { adminRoles } = require('../../config/config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup')
-    .setDescription('Configure le bot et la base de données'),
+    .setDescription('Configure the bot and database'),
   
   name: 'setup',
-  description: 'Configure le bot et la base de données',
+  description: 'Configure the bot and database',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction slash command ou un message traditionnel
+      // Determine if this is a slash command or traditional message
       const isSlash = interaction.isChatInputCommand?.();
       
-      // Répondre initialement
+      // Initial response
       if (isSlash) {
         await interaction.deferReply();
       } else {
-        await interaction.reply('Configuration en cours...');
+        await interaction.reply('Configuration in progress...');
       }
       
-      // Étape 1: Vérifier la connexion à Supabase
-      logger.info('Vérification de la connexion à Supabase...');
+      // Step 1: Check Supabase connection
+      logger.info('Checking Supabase connection...');
       const { data: testData, error: testError } = await supabase
         .from('orders')
         .select('count');
       
       if (testError) {
-        throw new Error(`Erreur de connexion à Supabase: ${testError.message}`);
+        throw new Error(`Supabase connection error: ${testError.message}`);
       }
       
-      // Étape 2: Assurer que les tables nécessaires existent
-      logger.info('Vérification des tables...');
+      // Step 2: Ensure necessary tables exist
+      logger.info('Checking tables...');
       
-      // Vérifier que les noms de colonnes correspondent aux screenshots
+      // Verify that column names match the screenshots
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id, orderid, adminid, clientname, compensation, description, status, assignedto, assignedat, updatedat, createdat')
@@ -50,65 +50,65 @@ module.exports = {
         .select('id, userid, activeorderid, completedorders, lastactive')
         .limit(1);
       
-      // Créer l'embed avec les résultats
+      // Create embed with results
       const setupEmbed = new EmbedBuilder()
         .setColor('#0099ff')
-        .setTitle('Configuration du Bot')
-        .setDescription('Résultat de la vérification des configurations')
+        .setTitle('Bot Configuration')
+        .setDescription('Configuration verification results')
         .addFields(
-          { name: 'Connexion Supabase', value: testError ? '❌ Échec' : '✅ Réussie' }
+          { name: 'Supabase Connection', value: testError ? '❌ Failed' : '✅ Successful' }
         )
         .setTimestamp();
       
-      // Ajouter des informations sur les tables
+      // Add table information
       if (ordersError) {
         setupEmbed.addFields({ 
-          name: 'Table Orders', 
-          value: `❌ Erreur: ${ordersError.message}`
+          name: 'Orders Table', 
+          value: `❌ Error: ${ordersError.message}`
         });
       } else {
         setupEmbed.addFields({ 
-          name: 'Table Orders', 
+          name: 'Orders Table', 
           value: '✅ Accessible'
         });
       }
       
       if (codersError) {
         setupEmbed.addFields({ 
-          name: 'Table Coders', 
-          value: `❌ Erreur: ${codersError.message}`
+          name: 'Coders Table', 
+          value: `❌ Error: ${codersError.message}`
         });
       } else {
         setupEmbed.addFields({ 
-          name: 'Table Coders', 
+          name: 'Coders Table', 
           value: '✅ Accessible'
         });
       }
       
-      // Ajouter les colonnes des tables pour vérification
+      // Add table columns for verification
       setupEmbed.addFields({ 
-        name: 'Structure de la table Orders', 
+        name: 'Orders Table Structure', 
         value: '```\nid, orderid, adminid, clientname, compensation, description, status, assignedto, assignedat, updatedat, createdat, completedat\n```' 
       });
       
       setupEmbed.addFields({ 
-        name: 'Structure de la table Coders', 
+        name: 'Coders Table Structure', 
         value: '```\nid, userid, activeorderid, completedorders, lastactive\n```' 
       });
       
-      // Répondre avec l'embed
+      // Reply with embed
       if (isSlash) {
         await interaction.editReply({ embeds: [setupEmbed] });
       } else {
         await interaction.editReply({ embeds: [setupEmbed] });
       }
       
-      logger.info('Configuration terminée!');
+      logger.info('Configuration completed!');
       
     } catch (error) {
-      logger.error('Erreur lors de la configuration:', error);
+      logger.error('Error during configuration:', error);
       
-      const errorMessage = `Une erreur est survenue: ${error.message}`;
+      const errorMessage = `An error occurred: ${error.message}`;
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {

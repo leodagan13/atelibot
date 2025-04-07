@@ -8,47 +8,47 @@ const { createNotification, getLogoAttachment } = require('../../utils/modernEmb
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('reset_cooldown')
-    .setDescription('Réinitialise le délai de demande de vérification pour un projet')
+    .setDescription('Reset the verification request cooldown for a project')
     .addStringOption(option =>
       option.setName('orderid')
-        .setDescription('ID du projet')
+        .setDescription('Project ID')
         .setRequired(true)),
   
   name: 'reset_cooldown',
-  description: 'Réinitialise le délai de demande de vérification pour un projet',
+  description: 'Reset the verification request cooldown for a project',
   permissions: adminRoles,
   
   async execute(interaction, args, client) {
     try {
-      // Déterminer si c'est une interaction slash command
+      // Determine if this is a slash command
       const isSlash = interaction.isChatInputCommand?.();
       
-      // Obtenir l'ID de l'offre
+      // Get the order ID
       let orderId;
       if (isSlash) {
         await interaction.deferReply({ ephemeral: true });
         orderId = interaction.options.getString('orderid');
       } else {
         if (!args || args.length === 0) {
-          return interaction.reply('Veuillez fournir l\'ID du projet.');
+          return interaction.reply('Please provide the project ID.');
         }
         orderId = args[0];
       }
       
-      // Vérifier que l'offre existe
+      // Verify that the order exists
       const order = await orderDB.findById(orderId);
       if (!order) {
-        const replyContent = `Aucun projet trouvé avec l'ID ${orderId}.`;
+        const replyContent = `No project found with ID ${orderId}.`;
         return isSlash ? interaction.editReply({ content: replyContent, ephemeral: true }) : interaction.reply(replyContent);
       }
       
-      // Vérifier que l'offre a bien un délai de vérification actif
+      // Verify that the order has an active verification cooldown
       if (!order.lastverificationrequest) {
-        const replyContent = `Le projet #${orderId} n'a pas de délai de vérification actif.`;
+        const replyContent = `Project #${orderId} does not have an active verification cooldown.`;
         return isSlash ? interaction.editReply({ content: replyContent, ephemeral: true }) : interaction.reply(replyContent);
       }
       
-      // Réinitialiser le délai
+      // Reset the cooldown
       await orderDB.resetVerificationCooldown(orderId);
       
       // Notification
@@ -60,28 +60,28 @@ module.exports = {
       
       const logoAttachment = getLogoAttachment();
       
-      // Répondre avec la notification
+      // Reply with the notification
       if (isSlash) {
         await interaction.editReply({
-          content: `Le délai de vérification pour le projet #${orderId} a été réinitialisé. Le développeur peut maintenant demander une nouvelle vérification.`,
+          content: `The verification cooldown for project #${orderId} has been reset. The developer can now request a new verification.`,
           embeds: [embed],
           files: [logoAttachment],
           ephemeral: true
         });
       } else {
         await interaction.reply({
-          content: `Le délai de vérification pour le projet #${orderId} a été réinitialisé. Le développeur peut maintenant demander une nouvelle vérification.`,
+          content: `The verification cooldown for project #${orderId} has been reset. The developer can now request a new verification.`,
           embeds: [embed],
           files: [logoAttachment]
         });
       }
       
-      // Si le projet a un canal privé, envoyer une notification
+      // If the project has a private channel, send a notification
       if (order.privatechannelid) {
         const channel = client.channels.cache.get(order.privatechannelid);
         if (channel) {
           await channel.send({
-            content: `✅ Un administrateur a réinitialisé le délai de vérification pour ce projet. Le développeur <@${order.assignedto}> peut maintenant demander une nouvelle vérification.`,
+            content: `✅ An administrator has reset the verification cooldown for this project. The developer <@${order.assignedto}> can now request a new verification.`,
             ephemeral: false
           });
         }
@@ -91,7 +91,7 @@ module.exports = {
       
     } catch (error) {
       logger.error('Error resetting verification cooldown:', error);
-      const errorMessage = 'Une erreur est survenue lors de la réinitialisation du délai de vérification.';
+      const errorMessage = 'An error occurred while resetting the verification cooldown.';
       
       if (interaction.isChatInputCommand?.()) {
         if (interaction.deferred || interaction.replied) {
