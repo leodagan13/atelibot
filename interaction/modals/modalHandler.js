@@ -20,7 +20,7 @@ async function handleModalSubmit(interaction, client) {
       await handleFirstOrderModal(interaction, client);
     }
     // Handle date selection modal
-    else if (interaction.customId.startsWith('date_modal_')) {
+    else if (interaction.customId.startsWith('create_order_date_')) {
       await handleDateModal(interaction, client);
     }
     // Handle second modal with date inputs
