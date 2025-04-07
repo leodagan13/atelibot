@@ -65,7 +65,6 @@ const orderDB = {
         description: orderData.data.description || 'Aucune description',
         status: 'OPEN',
         createdat: new Date().toISOString(),
-        tags: orderData.data.tags || [],
         required_roles: requiredRoles,
         messageid: null,  // Sera mis à jour après publication
         deadline: deadlineISO, // Utiliser la version ISO convertie
@@ -201,9 +200,10 @@ const orderDB = {
         query = query.eq('status', filter);
       }
       
-      const { data, error } = await query
-        .order('completedat', { ascending: false })
+      query = query.order('createdat', { ascending: false })
         .range(offset, offset + limit - 1);
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data;

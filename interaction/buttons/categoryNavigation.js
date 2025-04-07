@@ -31,8 +31,7 @@ async function handleBackToCategories(interaction, client) {
         requiredRoles: [],
         clientName: '',
         compensation: '',
-        description: '',
-        tags: []
+        description: ''
       },
       channelId: interaction.channelId
     };

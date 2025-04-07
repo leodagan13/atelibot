@@ -88,11 +88,6 @@ async function handleButtonInteraction(interaction, client) {
       await handleDateContinue(interaction, client);
     }
     
-    // Handle add tags button
-    else if (buttonId.startsWith('add_tags_')) {
-      await handleAddTags(interaction, client);
-    }
-    
     // Handle skip date selection
     else if (buttonId.startsWith('skip_date_')) {
       await handleSkipDate(interaction, client);
@@ -136,20 +131,11 @@ async function handleButtonInteraction(interaction, client) {
         .setRequired(true)
         .setStyle(TextInputStyle.Short);
         
-      // Optional tags input
-      const tagsInput = new TextInputBuilder()
-        .setCustomId('tags')
-        .setLabel('Tags (Optional, comma-separated)')
-        .setPlaceholder('javascript, react, api')
-        .setRequired(false)
-        .setStyle(TextInputStyle.Short);
-        
       // Add components to modal
       modal.addComponents(
         new ActionRowBuilder().addComponents(yearInput),
         new ActionRowBuilder().addComponents(monthInput),
-        new ActionRowBuilder().addComponents(dayInput),
-        new ActionRowBuilder().addComponents(tagsInput)
+        new ActionRowBuilder().addComponents(dayInput)
       );
       
       // Show the modal
@@ -220,39 +206,6 @@ async function handleButtonInteraction(interaction, client) {
     } catch (replyError) {
       logger.error('Error sending error response:', replyError);
     }
-  }
-}
-
-/**
- * Handles the add tags button interaction
- * @param {Object} interaction - Discord interaction
- * @param {Object} client - Discord client
- */
-async function handleAddTags(interaction, client) {
-  try {
-    const userId = interaction.user.id;
-    
-    // Create a modal for adding tags
-    const modal = new ModalBuilder()
-      .setCustomId(`add_tags_modal_${userId}`)
-      .setTitle('Add Tags');
-      
-    // Add tags input
-    const tagsInput = new TextInputBuilder()
-      .setCustomId('tags')
-      .setLabel('Tags (separated by commas)')
-      .setPlaceholder('javascript, discord.js, bot, etc...')
-      .setRequired(false)
-      .setStyle(TextInputStyle.Paragraph);
-      
-    const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
-    modal.addComponents(tagsRow);
-    
-    // Show the modal
-    await interaction.showModal(modal);
-  } catch (error) {
-    logger.error('Error handling add tags button:', error);
-    throw error;
   }
 }
 
@@ -378,7 +331,6 @@ async function startRoleSelection(interaction, client) {
 module.exports = {
   handleBackToCategories,
   handleButtonInteraction,
-  handleAddTags,
   handleSkipDate,
   handleContinueToRoles,
   startRoleSelection

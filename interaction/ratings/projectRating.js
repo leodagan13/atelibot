@@ -36,7 +36,7 @@ async function sendRatingInterface(channel, projectData, developer, admin) {
         new ButtonBuilder()
           .setCustomId(`rate_${projectData.orderid}_${developer.id}_1`)
           .setLabel('1⭐')
-          .setStyle(ButtonStyle.Success), // Vert
+          .setStyle(ButtonStyle.Secondary), // Gris
         new ButtonBuilder()
           .setCustomId(`rate_${projectData.orderid}_${developer.id}_2`)
           .setLabel('2⭐')
@@ -44,15 +44,15 @@ async function sendRatingInterface(channel, projectData, developer, admin) {
         new ButtonBuilder()
           .setCustomId(`rate_${projectData.orderid}_${developer.id}_3`)
           .setLabel('3⭐')
-          .setStyle(ButtonStyle.Danger), // Rouge
+          .setStyle(ButtonStyle.Primary), // Bleu
         new ButtonBuilder()
           .setCustomId(`rate_${projectData.orderid}_${developer.id}_4`)
           .setLabel('4⭐')
-          .setStyle(ButtonStyle.Secondary), // Gris
+          .setStyle(ButtonStyle.Success), // Vert
         new ButtonBuilder()
           .setCustomId(`rate_${projectData.orderid}_${developer.id}_5`)
           .setLabel('5⭐')
-          .setStyle(ButtonStyle.Primary) // Bleu
+          .setStyle(ButtonStyle.Success) // Vert
       );
 
     // Bouton d'échec séparé
@@ -64,13 +64,12 @@ async function sendRatingInterface(channel, projectData, developer, admin) {
           .setStyle(ButtonStyle.Danger) // Rouge
       );
 
-    // Configurer les couleurs personnalisées - CORRECTION DU PROBLÈME
-    // Ne pas utiliser style 5 (Link) car il nécessite une URL
-    row1.components[0].setStyle(ButtonStyle.Success);  // Option 1: Vert
-    row1.components[1].setStyle(ButtonStyle.Primary);  // Option 2: Bleu
-    row1.components[2].setStyle(ButtonStyle.Danger);   // Option 3: Rouge
-    row1.components[3].setStyle(ButtonStyle.Secondary); // Option 4: Gris
-    row1.components[4].setStyle(ButtonStyle.Primary);  // Option 5: Bleu (au lieu de style 5)
+    // Configurer les couleurs personnalisées pour une progression visuelle attrayante
+    row1.components[0].setStyle(ButtonStyle.Secondary); // Option 1: Gris - Basique
+    row1.components[1].setStyle(ButtonStyle.Secondary); // Option 2: Gris - Mieux que basique
+    row1.components[2].setStyle(ButtonStyle.Primary);   // Option 3: Bleu - Bon
+    row1.components[3].setStyle(ButtonStyle.Primary);   // Option 4: Bleu - Très bon
+    row1.components[4].setStyle(ButtonStyle.Success);   // Option 5: Vert - Excellent
 
     const logoAttachment = getLogoAttachment();
 

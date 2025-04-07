@@ -146,11 +146,6 @@ async function createPrivateChannel(guild, order, coderId) {
 async function sendInitialMessage(channel, order, coderId) {
   logger.debug(`Creating channel message with order: ${JSON.stringify(order)}`);
   
-  // Récupérer les tags de l'ordre
-  const tagsFormatted = order.tags && order.tags.length > 0
-    ? order.tags.map(tag => `🔴 \`${tag}\``).join('\n')
-    : 'Aucun tag';
-    
   // Create embed with order summary
   const { embed, row } = createPrivateChannelEmbed(order, coderId, appearance.logoUrl);
   const logoAttachment = getLogoAttachment();

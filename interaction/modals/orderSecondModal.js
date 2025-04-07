@@ -14,12 +14,6 @@ async function handleSecondOrderModal(interaction, client) {
     const day = interaction.fields.getTextInputValue('day');
     const month = interaction.fields.getTextInputValue('month');
     const year = interaction.fields.getTextInputValue('year');
-    const tagsString = interaction.fields.getTextInputValue('tags') || '';
-    
-    // Process tags
-    const tags = tagsString.split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
     
     // Get the order session
     const orderSession = client.activeOrders.get(userId);
@@ -30,9 +24,6 @@ async function handleSecondOrderModal(interaction, client) {
         ephemeral: true
       });
     }
-    
-    // Update the session with the new data
-    orderSession.data.tags = tags;
     
     // Process date inputs into a standardized format if all are provided
     if (day && month && year) {

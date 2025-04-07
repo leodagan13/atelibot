@@ -42,7 +42,6 @@ async function handleRoleSelection(interaction, client) {
           clientName: 'Recovered Session',
           compensation: 'To be determined',
           description: 'Session was recovered after being lost.',
-          tags: []
         },
         channelId: interaction.channelId
       };

@@ -16,7 +16,6 @@ async function handleOrderConfirmationModal(interaction, client) {
     const clientName = interaction.fields.getTextInputValue('clientName');
     const compensation = interaction.fields.getTextInputValue('compensation');
     const description = interaction.fields.getTextInputValue('description');
-    const tagsInput = interaction.fields.getTextInputValue('tags');
     
     // Get user's session data
     const userId = interaction.user.id;
@@ -53,11 +52,6 @@ async function handleOrderConfirmationModal(interaction, client) {
         ephemeral: true
       });
     }
-    
-    // Process tags
-    const tags = tagsInput.split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
       
     // Process required roles
     const requiredRolesInput = interaction.fields.getTextInputValue('requiredRoles');
@@ -95,7 +89,6 @@ async function handleOrderConfirmationModal(interaction, client) {
       orderid: uniqueOrderId,
       description: description,
       compensation: compensation,
-      tags: tags,
       requiredRoles: requiredRoles,
       adminName: interaction.user.tag,
       adminid: interaction.user.id,
@@ -120,7 +113,6 @@ async function handleOrderConfirmationModal(interaction, client) {
         clientName,
         compensation,
         description,
-        tags,
         requiredRoles,
         deadline: deadline,
         level: level

@@ -60,7 +60,6 @@ const FIELD_ICONS = {
   developer: '👨‍💻', // Using only developer (not coder)
   status: '🔄',
   orderid: '🔑', // Using only orderid (not id)
-  tags: '🏷️',
   skills: '🧠',
   
   // Get icon by field name
@@ -201,12 +200,6 @@ function createSidebarOrderEmbed(order, isPreview = false) {
       }
     }
   }
-    
-  // Add skills/tags if available
-  if (order.tags && order.tags.length > 0) {
-    const formattedTags = order.tags.map(tag => `\`${tag}\``).join(' ');
-    embed.addFields({ name: `${FIELD_ICONS.tags} Technologies Needed`, value: formattedTags });
-  }
   
   // Add required roles/skills if available
   if (order.requiredRoles && order.requiredRoles.length > 0) {
@@ -285,12 +278,6 @@ function createPrivateChannelEmbed(order, developerID) {
     { name: `${FIELD_ICONS.developer} Developer`, value: `<@${developerID}>`, inline: true },
     { name: `${FIELD_ICONS.date} Start Date`, value: `<t:${Math.floor(Date.now()/1000)}:D>`, inline: true }
   );
-  
-  // Add skills/tags if available
-  if (order.tags && order.tags.length > 0) {
-    const formattedTags = order.tags.map(tag => `\`${tag}\``).join(' ');
-    embed.addFields({ name: `${FIELD_ICONS.skills} Required Skills`, value: formattedTags });
-  }
   
   // Create button row for project actions
   const row = new ActionRowBuilder()

@@ -54,13 +54,6 @@ async function handleLevelSelection(interaction, client) {
     .setStyle(TextInputStyle.Paragraph)
     .setMaxLength(1000);
   
-  const tagsInput = new TextInputBuilder()
-    .setCustomId('tags')
-    .setLabel('Tags (comma separated)')
-    .setValue(orderSession.data.tags ? orderSession.data.tags.join(', ') : '')
-    .setRequired(false)
-    .setStyle(TextInputStyle.Short);
-  
   // Format required roles for display
   const requiredRolesText = orderSession.data.requiredRoles?.map(r => r.name).join(', ') || '';
   
@@ -75,11 +68,10 @@ async function handleLevelSelection(interaction, client) {
   const clientNameRow = new ActionRowBuilder().addComponents(clientNameInput);
   const compensationRow = new ActionRowBuilder().addComponents(compensationInput);
   const descriptionRow = new ActionRowBuilder().addComponents(descriptionInput);
-  const tagsRow = new ActionRowBuilder().addComponents(tagsInput);
   const requiredRolesRow = new ActionRowBuilder().addComponents(requiredRolesInput);
   
   // Add rows to modal
-  modal.addComponents(clientNameRow, compensationRow, descriptionRow, tagsRow, requiredRolesRow);
+  modal.addComponents(clientNameRow, compensationRow, descriptionRow, requiredRolesRow);
   
   // Show the modal
   await interaction.showModal(modal);

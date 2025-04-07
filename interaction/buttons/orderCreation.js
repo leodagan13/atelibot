@@ -95,7 +95,6 @@ async function showOrderSummary(message, orderSession, client) {
       orderid: `PREVIEW-${confirmationId}`,
       description: orderSession.data.description,
       compensation: orderSession.data.compensation,
-      tags: orderSession.data.tags || [],
       adminName: message.author.tag,
       level: orderSession.data.level || 1 // Default to level 1 if not set
     };
@@ -260,7 +259,6 @@ async function processOrderConfirmation(interaction, confirmationData, client) {
       orderid: uniqueOrderId,
       description: orderData.data.description,
       compensation: orderData.data.compensation,
-      tags: orderData.data.tags || [],
       adminName: interaction.user.tag,
       level: orderData.data.level || 1
     });
@@ -362,7 +360,6 @@ async function publishModalOrder(interaction, orderId, client) {
         clientName: orderSession.data.clientName,
         compensation: orderSession.data.compensation,
         description: orderSession.data.description,
-        tags: orderSession.data.tags || [],
         requiredRoles: orderSession.data.requiredRoles || [],
         deadline: orderSession.data.deadline || null,
         level: orderSession.data.level || 1
@@ -397,7 +394,6 @@ async function publishModalOrder(interaction, orderId, client) {
       orderid: orderId,
       description: orderSession.data.description,
       compensation: orderSession.data.compensation,
-      tags: orderSession.data.tags || [],
       requiredRoles: orderSession.data.requiredRoles || [],
       adminName: interaction.user.tag,
       adminid: interaction.user.id,

@@ -15,12 +15,6 @@ async function handleOrderCreationModal(interaction, client) {
   const compensation = interaction.fields.getTextInputValue('compensation');
   const description = interaction.fields.getTextInputValue('description');
   
-  // Process tags
-  const tagsString = interaction.fields.getTextInputValue('tags') || '';
-  const tags = tagsString.split(',')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0);
-  
   // Process deadline
   let deadline = null;
   try {
@@ -53,7 +47,6 @@ async function handleOrderCreationModal(interaction, client) {
       clientName,
       compensation,
       description,
-      tags,
       deadline,
       requiredRoles: []
     };

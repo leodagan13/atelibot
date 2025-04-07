@@ -343,7 +343,6 @@ async function startDateSelection(interaction, client) {
         clientName: '',
         compensation: '',
         description: '',
-        tags: [],
         requiredRoles: [],
         deadline: null
       },

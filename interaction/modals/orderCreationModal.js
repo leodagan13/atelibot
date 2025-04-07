@@ -31,7 +31,6 @@ async function handleFirstOrderModal(interaction, client) {
       clientName,
       compensation,
       description,
-      tags: [],
       requiredRoles: []
     };
     orderSession.step = 'date_modal';
